@@ -1,0 +1,27 @@
+syntax = "proto3";
+package world;
+
+message Position {
+   int32 x = 1;
+   int32 y = 2;
+   int32 z = 3;
+   int32 o = 4;
+}
+
+message EntityUpdate {
+    int32 entity_id = 1;
+    Position position = 2;
+}
+
+message UpdateRequest {
+    EntityUpdate update = 1;
+}
+ 
+message UpdateResponse {
+    repeated EntityUpdate updates = 1;
+}
+
+
+service WorldService {
+    rpc Update (stream UpdateRequest) returns (stream UpdateResponse);
+}

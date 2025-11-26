@@ -1,6 +1,12 @@
-[package]
-name = "idklol-server"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = [
+  "auth",
+  "world",
+  "chat",
+  "common"
+]
+resolver = "3"
 
-[dependencies]
+[workspace.lints.rust]
+unsafe_code = "forbid"
+# unused = "allow" # For experimental dev.
