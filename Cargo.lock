@@ -422,7 +422,15 @@ dependencies = [
 name = "idklol-chat"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "h2",
  "idklol-common",
+ "prost",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-prost",
+ "tonic-prost-build",
 ]
 
 [[package]]
