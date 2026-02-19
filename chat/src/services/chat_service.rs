@@ -19,7 +19,7 @@ impl Default for MyChatService {
     }
 }
 
-const  DATE_FORMAT_STRING: &'static str = "[%Y-%m-%d %H:%M:%S:%.3f]";
+const  DATE_FORMAT_STRING: &'static str = "[%H:%M:%S]";
 
 #[tonic::async_trait]
 impl ChatService for MyChatService {
@@ -35,7 +35,8 @@ impl ChatService for MyChatService {
             request
         );
 
-        let msg = request.into_inner();
+        let mut msg = request.into_inner();
+        msg.timestamp = Local::now().format(DATE_FORMAT_STRING).to_string();
 
         let subscribers = self.subscribers.lock().await;
         for tx in subscribers.iter() {

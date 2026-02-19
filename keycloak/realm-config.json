@@ -1,0 +1,49 @@
+{
+  "realm": "idklol",
+  "enabled": true,
+  "registrationAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "admin" },
+      { "name": "user" }
+    ]
+  },
+  "users": [
+    {
+      "username": "adminuser",
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "adminuser@example.com",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "admin123" }
+      ],
+      "realmRoles": ["admin"]
+    },
+    {
+      "username": "normaluser",
+      "firstName": "Normal",
+      "lastName": "User",
+      "email": "normaluser@example.com",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "user123" }
+      ],
+      "realmRoles": ["user"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "idklol-chat",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": [
+        "http://localhost/*"
+      ]
+    }
+  ]
+}

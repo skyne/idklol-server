@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "0.0.0.0:50052".parse()?;
     let chat_service = MyChatService::default();
 
-    println!("Auth server running on {}", addr);
+    println!("Chat server running on {}", addr);
 
     Server::builder()
         .add_service(ChatServiceServer::new(chat_service))
