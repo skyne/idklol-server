@@ -406,19 +406,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "idklol-auth"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "idklol-common",
- "prost",
- "tokio",
- "tonic",
- "tonic-prost",
- "tonic-prost-build",
-]
-
-[[package]]
 name = "idklol-chat"
 version = "0.1.0"
 dependencies = [
@@ -436,20 +423,6 @@ dependencies = [
 [[package]]
 name = "idklol-common"
 version = "0.1.0"
-
-[[package]]
-name = "idklol-world"
-version = "0.1.0"
-dependencies = [
- "h2",
- "idklol-common",
- "prost",
- "tokio",
- "tokio-stream",
- "tonic",
- "tonic-prost",
- "tonic-prost-build",
-]
 
 [[package]]
 name = "indexmap"

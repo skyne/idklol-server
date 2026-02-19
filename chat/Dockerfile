@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM rust:1.85-slim AS builder
+FROM rust:1.93-slim AS builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -25,7 +25,7 @@ WORKDIR /app/chat
 
 RUN cargo build --release
 
-FROM debian:bookworm-slim
+FROM debian:trixie-20260202-slim
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \

@@ -35,8 +35,12 @@ impl ChatService for MyChatService {
             request
         );
 
+        let mut authHeader = request.metadata().get("authorization").unwrap();
+        println!("Authorization header: {:?}", authHeader);
+
         let mut msg = request.into_inner();
         msg.timestamp = Local::now().format(DATE_FORMAT_STRING).to_string();
+    
 
         let subscribers = self.subscribers.lock().await;
         for tx in subscribers.iter() {
