@@ -5,6 +5,7 @@ use crate::chat::ChatMessage;
 use chrono::Local;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
+use tracing::{debug, info};
 
 #[derive(Debug)]
 pub struct MyChatService {
@@ -29,14 +30,10 @@ impl ChatService for MyChatService {
         &self,
         request: Request<ChatMessage>,
     ) -> Result<Response<()>, Status> {
-        println!(
-            "{}: Got a request: {:?}",
-            Local::now().format(DATE_FORMAT_STRING),
-            request
-        );
+        info!("chat message request received");
 
-        let mut authHeader = request.metadata().get("authorization").unwrap();
-        println!("Authorization header: {:?}", authHeader);
+        let auth_header = request.metadata().get("authorization");
+        debug!(has_authorization = auth_header.is_some(), "authorization header inspected");
 
         let mut msg = request.into_inner();
         msg.timestamp = Local::now().format(DATE_FORMAT_STRING).to_string();
@@ -53,13 +50,9 @@ impl ChatService for MyChatService {
 
     async fn stream(
         &self,
-        request: Request<()>,
+        _request: Request<()>,
     ) -> Result<Response<Self::StreamStream>, Status> {
-        println!(
-            "{}: Got a request: {:?}",
-            Local::now().format(DATE_FORMAT_STRING),
-            request
-        );
+        info!("chat stream request received");
 
         let (tx, rx) = mpsc::channel(16);
 

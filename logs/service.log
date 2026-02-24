@@ -1,0 +1,2 @@
+2026-02-24T09:16:54.625021Z  INFO idklol_chat: chat server starting addr=0.0.0.0:50052
+2026-02-24T09:16:54.625067Z DEBUG idklol_chat: waiting for manual JWT validation input

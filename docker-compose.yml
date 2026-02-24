@@ -14,6 +14,23 @@ services:
     command: ["start-dev", "--import-realm"]
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: idklol_characters
+      POSTGRES_USER: idklol
+      POSTGRES_PASSWORD: idklol_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U idklol -d idklol_characters"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   chatserver:
     build:
       context: .
@@ -21,9 +38,32 @@ services:
     ports:
       - "50052:50052"
     environment:
-      KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: idklol
-      KEYCLOAK_CLIENT_ID: idklol-chat
+      KEYCLOAK_URL: http://keycloak:8080/realms/idklol/protocol/openid-connect/certs
+      LOG_LEVEL: info
+      LOG_OUTPUT: console
+      LOG_FORMAT: plain
     depends_on:
       - keycloak
     restart: unless-stopped
+
+  characterserver:
+    build:
+      context: .
+      dockerfile: characters/Dockerfile
+    ports:
+      - "50053:50052"
+    environment:
+      DATABASE_URL: postgresql://idklol:idklol_dev_password@postgres:5432/idklol_characters
+      KEYCLOAK_URL: http://keycloak:8080/realms/idklol/protocol/openid-connect/certs
+      LOG_LEVEL: info
+      LOG_OUTPUT: console
+      LOG_FORMAT: plain
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

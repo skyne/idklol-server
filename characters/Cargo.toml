@@ -1,5 +1,5 @@
 [package]
-name = "idklol-chat"
+name = "idklol-characters"
 version = "0.1.0"
 edition = "2024"
 
@@ -10,8 +10,13 @@ prost = "0.14"
 tonic = "0.14.2"
 tonic-prost = "*"
 h2 = { version = "0.4" }
-chrono = "0.4.42"
+chrono = { version = "0.4.42", features = ["serde"] }
 tracing = "0.1"
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "macros", "uuid", "chrono"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # local
 [dependencies.idklol-common]

@@ -4,3 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
+reqwest = { version = "0.13.2", features = ["blocking", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+dotenvy = "0.15"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-bunyan-formatter = "0.3"
+tracing-subscriber = { version = "0.3", features = ["fmt", "registry"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["rt", "macros"] }

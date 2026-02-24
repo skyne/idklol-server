@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "chat",
+  "characters",
   "common"
 ]
 resolver = "3"

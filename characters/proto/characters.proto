@@ -1,0 +1,149 @@
+syntax = "proto3";
+package characters;
+
+import "google/protobuf/empty.proto";
+
+// Enums for character attributes
+enum Race {
+    RACE_UNSPECIFIED = 0;
+    HUMAN = 1;
+    ELF = 2;
+    DWARF = 3;
+    ORC = 4;
+}
+
+enum Gender {
+    GENDER_UNSPECIFIED = 0;
+    MALE = 1;
+    FEMALE = 2;
+}
+
+enum SkinColor {
+    SKIN_COLOR_UNSPECIFIED = 0;
+    PALE = 1;
+    FAIR = 2;
+    TAN = 3;
+    BROWN = 4;
+    DARK = 5;
+    GREEN = 6;
+    GRAY = 7;
+}
+
+enum CharacterClass {
+    CLASS_UNSPECIFIED = 0;
+    WARRIOR = 1;
+    MAGE = 2;
+    ROGUE = 3;
+    CLERIC = 4;
+    RANGER = 5;
+}
+
+// Request/Response messages
+
+// Version check for character creation catalog cache
+message CheckCharacterCreationCatalogVersionRequest {
+    // Client cached version (empty string means no cache)
+    string cached_version = 1;
+}
+
+message CheckCharacterCreationCatalogVersionResponse {
+    // True when the provided cached_version is up to date
+    bool is_current = 1;
+    // Current server catalog version (empty when server has not cached yet)
+    string latest_version = 2;
+}
+
+message RaceOption {
+    Race race = 1;
+    string name = 2;
+}
+
+message GenderOption {
+    Gender gender = 1;
+    string name = 2;
+}
+
+message SkinColorOption {
+    SkinColor skin_color = 1;
+    string name = 2;
+}
+
+message ClassOption {
+    CharacterClass character_class = 1;
+    string name = 2;
+}
+
+message RaceGenderCombination {
+    Race race = 1;
+    Gender gender = 2;
+}
+
+message RaceGenderSkinColorCombination {
+    Race race = 1;
+    Gender gender = 2;
+    SkinColor skin_color = 3;
+}
+
+message RaceGenderClassCombination {
+    Race race = 1;
+    Gender gender = 2;
+    CharacterClass character_class = 3;
+}
+
+message CharacterCreationCatalog {
+    // Version string for cache validation (e.g., hash of catalog data)
+    string version = 1;
+    
+    // All available options
+    repeated RaceOption races = 2;
+    repeated GenderOption genders = 3;
+    repeated SkinColorOption skin_colors = 4;
+    repeated ClassOption classes = 5;
+    
+    // Valid combinations
+    repeated RaceGenderCombination allowed_race_gender = 6;
+    repeated RaceGenderSkinColorCombination allowed_race_gender_skin_color = 7;
+    repeated RaceGenderClassCombination allowed_race_gender_class = 8;
+}
+
+message CreateCharacterRequest {
+    string name = 1;
+    Race race = 2;
+    Gender gender = 3;
+    SkinColor skin_color = 4;
+    CharacterClass character_class = 5;
+}
+
+message CreateCharacterResponse {
+    string character_id = 1;
+    string name = 2;
+    Race race = 3;
+    Gender gender = 4;
+    SkinColor skin_color = 5;
+    CharacterClass character_class = 6;
+    string created_at = 7;
+}
+
+message ListCreatedCharactersRequest {}
+
+message Character {
+    string character_id = 1;
+    string name = 2;
+    Race race = 3;
+    Gender gender = 4;
+    SkinColor skin_color = 5;
+    CharacterClass character_class = 6;
+    string created_at = 7;
+}
+
+message ListCreatedCharactersResponse {
+    repeated Character characters = 1;
+}
+
+// Character service definition
+service CharacterService {
+    rpc CheckCharacterCreationCatalogVersion(CheckCharacterCreationCatalogVersionRequest) returns (CheckCharacterCreationCatalogVersionResponse);
+    rpc GetCharacterCreationCatalog(google.protobuf.Empty) returns (CharacterCreationCatalog);
+    rpc CreateCharacter(CreateCharacterRequest) returns (CreateCharacterResponse);
+    rpc ListCreatedCharacters(ListCreatedCharactersRequest) returns (ListCreatedCharactersResponse);
+}
