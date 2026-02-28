@@ -1,6 +1,7 @@
 {
   "realm": "idklol",
   "enabled": true,
+  "sslRequired": "none",
   "registrationAllowed": true,
   "accessTokenLifespan": 36000,
   "accessTokenLifespanForImplicitFlow": 36000,
@@ -82,6 +83,37 @@
             "id.token.claim": "true",
             "access.token.claim": "true",
             "claim.name": "email",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "idklol-webadmin",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "secret": "webadmin-client-secret-12345",
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
             "jsonType.label": "String"
           }
         }

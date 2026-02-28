@@ -93,4 +93,12 @@ impl CatalogCache {
         let guard = cache.read().ok()?;
         guard.as_ref().map(|cached| cached.version.clone())
     }
+
+    /// Invalidate the catalog cache (called when admin modifies catalog data)
+    pub fn invalidate() {
+        let cache = Self::cache();
+        if let Ok(mut guard) = cache.write() {
+            *guard = None;
+        }
+    }
 }

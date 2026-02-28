@@ -3,3 +3,5 @@ pub mod catalog_cache;
 pub mod catalog_service;
 pub mod character_management_service;
 pub mod auth;
+pub mod catalog_admin_service;
+pub mod character_admin_service;

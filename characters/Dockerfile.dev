@@ -25,4 +25,5 @@ RUN rm -rf characters/src chat/src common/src
 
 # The actual source will be mounted as volume
 # cargo-watch will auto-rebuild on changes
-CMD ["cargo", "watch", "-w", "characters", "-w", "common", "-x", "run --bin idklol-characters"]
+# Default to grpc binary, can be overridden in docker-compose
+CMD ["cargo", "watch", "-w", "characters", "-w", "common", "-x", "run --bin characters-grpc"]

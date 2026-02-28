@@ -43,6 +43,19 @@ services:
       timeout: 5s
       retries: 5
 
+  nats:
+    image: nats:2.10-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["-js", "-m", "8222"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   chatserver:
     build:
       context: .
@@ -60,10 +73,12 @@ services:
       - keycloak
     restart: unless-stopped
 
-  characterserver:
+  characters-grpc:
     build:
       context: .
       dockerfile: characters/Dockerfile
+      args:
+        BINARY_NAME: characters-grpc
     ports:
       - "50053:50052"
     environment:
@@ -71,13 +86,60 @@ services:
       KEYCLOAK_URL: http://keycloak:8080/realms/idklol
       KEYCLOAK_CLIENT_ID: idklol-chat
       KEYCLOAK_CLIENT_SECRET: chat-client-secret-12345
-      LOG_LEVEL: debug
+      LOG_LEVEL: info
       LOG_OUTPUT: console
       LOG_FORMAT: plain
     depends_on:
       postgres:
         condition: service_healthy
       keycloak:
+        condition: service_started
+    restart: unless-stopped
+
+  characters-admin:
+    build:
+      context: .
+      dockerfile: characters/Dockerfile
+      args:
+        BINARY_NAME: characters-admin
+    environment:
+      DATABASE_URL: postgresql://idklol:idklol_dev_password@postgres:5432/idklol_characters
+      KEYCLOAK_URL: http://keycloak:8080/realms/idklol
+      KEYCLOAK_CLIENT_ID: idklol-chat
+      KEYCLOAK_CLIENT_SECRET: chat-client-secret-12345
+      NATS_URL: nats://nats:4222
+      LOG_LEVEL: info
+      LOG_OUTPUT: console
+      LOG_FORMAT: plain
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    restart: unless-stopped
+
+  webadmin:
+    build:
+      context: ./webadmin
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: change-this-in-production-use-openssl-rand-base64-32
+      KEYCLOAK_ID: idklol-webadmin
+      KEYCLOAK_SECRET: webadmin-client-secret-12345
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/idklol
+      NATS_URL: nats://nats:4222
+    depends_on:
+      keycloak:
+        condition: service_started
+      nats:
+        condition: service_healthy
+      characters-admin:
         condition: service_started
     restart: unless-stopped
 

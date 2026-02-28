@@ -24,7 +24,10 @@ COPY common/src /app/common/src
 
 WORKDIR /app/characters
 
-RUN cargo build --release
+# Build argument to specify which binary to build
+ARG BINARY_NAME=characters-grpc
+
+RUN cargo build --release --bin ${BINARY_NAME}
 
 FROM debian:trixie-20260202-slim
 
@@ -32,8 +35,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/characters/target/release/idklol-characters /usr/local/bin/idklol-characters
+# Use build argument to copy the correct binary
+ARG BINARY_NAME=characters-grpc
+COPY --from=builder /app/characters/target/release/${BINARY_NAME} /usr/local/bin/service
 
 EXPOSE 50052
 
-ENTRYPOINT ["idklol-characters"]
+ENTRYPOINT ["service"]

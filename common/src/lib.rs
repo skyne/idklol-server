@@ -13,6 +13,7 @@ pub mod auth {
 	pub mod interceptor;
 	pub mod jwt {
 		pub mod jwt_validator_service;
+		pub use jwt_validator_service::UserClaims;
 	}
 }
 

@@ -25,13 +25,14 @@ RESPONSE=$(curl -s -X POST "$KEYCLOAK_URL/realms/$REALM/protocol/openid-connect/
   -d "username=$USERNAME" \
   -d "password=$PASSWORD")
 
-ACCESS_TOKEN=$(echo $RESPONSE | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
-
-if [ -z "$ACCESS_TOKEN" ]; then
+# Check if we got a valid response with access_token
+if echo "$RESPONSE" | grep -q '"access_token"'; then
+  # Save the full JSON response (includes access_token, refresh_token, expires_in, etc.)
+  echo "$RESPONSE" | jq '.' > "$OUTPUT_FILE" 2>/dev/null || echo "$RESPONSE" > "$OUTPUT_FILE"
+  echo "Full token response saved to $OUTPUT_FILE"
+  echo "Response includes: access_token, refresh_token, expires_in, refresh_expires_in"
+else
   echo "ERROR: Failed to get access token"
   echo "Response: $RESPONSE"
   exit 1
 fi
-
-echo "$ACCESS_TOKEN" > "$OUTPUT_FILE"
-echo "Dev token saved to $OUTPUT_FILE (valid for ~10 hours)"

@@ -17,12 +17,38 @@ struct Claims {
     iat: Option<i64>,
     jti: Option<String>,
     email: Option<String>,
+    realm_access: Option<RealmAccess>,
+    sub: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct RealmAccess {
+    roles: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserClaims {
+    pub email: String,
+    pub roles: Vec<String>,
+    pub sub: String,
+}
+
+impl UserClaims {
+    pub fn has_role(&self, role: &str) -> bool {
+        self.roles.iter().any(|r| r == role)
+    }
+
+    pub fn is_admin(&self) -> bool {
+        self.has_role("admin")
+    }
 }
 
 #[derive(Debug, Deserialize)]
 struct IntrospectionResponse {
     active: bool,
     email: Option<String>,
+    realm_access: Option<RealmAccess>,
+    sub: Option<String>,
 }
 
 pub struct JwtValidatorService {}
@@ -31,6 +57,8 @@ pub struct JwtValidatorService {}
 struct CachedTokenValidation {
     is_valid: bool,
     email: Option<String>,
+    roles: Option<Vec<String>>,
+    sub: Option<String>,
     cached_at: Instant,
 }
 
@@ -68,12 +96,14 @@ impl JwtValidatorService {
         }
     }
 
-    fn set_cached_validation(token_hash: String, is_valid: bool, email: Option<String>) {
+    fn set_cached_validation(token_hash: String, is_valid: bool, email: Option<String>, roles: Option<Vec<String>>, sub: Option<String>) {
         let cache = Self::token_cache();
         if let Ok(mut guard) = cache.write() {
             guard.insert(token_hash, CachedTokenValidation {
                 is_valid,
                 email,
+                roles,
+                sub,
                 cached_at: Instant::now(),
             });
         }
@@ -194,7 +224,7 @@ impl TokenValidatorService for JwtValidatorService {
         // Local sanity check: expiration
         if !Self::check_token_expiration(token) {
             debug!("Token failed local expiration check");
-            Self::set_cached_validation(token_hash, false, None);
+            Self::set_cached_validation(token_hash, false, None, None, None);
             return false;
         }
 
@@ -219,18 +249,19 @@ impl TokenValidatorService for JwtValidatorService {
         match Self::introspect_token(&keycloak_url, &client_id, &client_secret, token).await {
             Ok(introspection) => {
                 if introspection.active {
-                    debug!(email = ?introspection.email, active = true, "Token introspection successful");
-                    Self::set_cached_validation(token_hash, true, introspection.email);
+                    let roles = introspection.realm_access.as_ref().map(|ra| ra.roles.clone());
+                    debug!(email = ?introspection.email, roles = ?roles, active = true, "Token introspection successful");
+                    Self::set_cached_validation(token_hash, true, introspection.email, roles, introspection.sub);
                     true
                 } else {
                     warn!(active = false, email = ?introspection.email, "Token introspection returned inactive");
-                    Self::set_cached_validation(token_hash, false, None);
+                    Self::set_cached_validation(token_hash, false, None, None, None);
                     false
                 }
             }
             Err(err) => {
                 error!(error = %err, "Token introspection failed");
-                Self::set_cached_validation(token_hash, false, None);
+                Self::set_cached_validation(token_hash, false, None, None, None);
                 false
             }
         }
@@ -261,6 +292,52 @@ impl TokenValidatorService for JwtValidatorService {
         }
 
         None
+    }
+}
+
+impl JwtValidatorService {
+    /// Validate token and extract full user claims including email, roles, and sub
+    pub async fn validate_and_extract_claims(&self, token: &str) -> Option<UserClaims> {
+        let token_hash = Self::compute_token_hash(token);
+
+        // Check cache first
+        if let Some(cached) = Self::get_cached_validation(&token_hash) {
+            if cached.is_valid {
+                if let (Some(email), Some(roles), Some(sub)) = (cached.email, cached.roles, cached.sub) {
+                    debug!(email = ?email, roles = ?roles, "Using cached token validation for claims extraction");
+                    return Some(UserClaims { email, roles, sub });
+                }
+            } else {
+                debug!("Token is cached as invalid");
+                return None;
+            }
+        }
+
+        // Validate will populate cache
+        if !self.validate_token(token).await {
+            return None;
+        }
+
+        // Re-check cache after validation
+        if let Some(cached) = Self::get_cached_validation(&token_hash) {
+            if let (Some(email), Some(roles), Some(sub)) = (cached.email, cached.roles, cached.sub) {
+                return Some(UserClaims { email, roles, sub });
+            }
+        }
+
+        None
+    }
+
+    /// Extract user claims and verify admin role
+    pub async fn validate_and_require_admin(&self, token: &str) -> Result<UserClaims, String> {
+        let claims = self.validate_and_extract_claims(token).await
+            .ok_or_else(|| "Invalid or expired token".to_string())?;
+        
+        if !claims.is_admin() {
+            return Err("Admin role required".to_string());
+        }
+
+        Ok(claims)
     }
 }
 

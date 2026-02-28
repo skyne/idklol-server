@@ -1,0 +1,133 @@
+@import '@fontsource/cinzel-decorative/400.css';
+@import '@fontsource/cinzel-decorative/700.css';
+@import '@fontsource/crimson-text/400.css';
+@import '@fontsource/crimson-text/600.css';
+@import '@fontsource/crimson-text/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #0a0e1a;
+    --foreground: #f0f0f0;
+    --card: #151b2e;
+    --primary: #8b5cf6;
+    --secondary: #06b6d4;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    font-feature-settings: "liga" 1;
+    letter-spacing: 0.015em;
+    line-height: 1.7;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+    letter-spacing: 0.05em;
+    text-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  }
+}
+
+@layer components {
+  .mystical-border {
+    @apply border-2 border-primary;
+    box-shadow: 
+      inset 0 0 20px rgba(139, 92, 246, 0.1),
+      0 0 15px rgba(139, 92, 246, 0.2);
+  }
+
+  .arcane-glow {
+    box-shadow: 
+      0 4px 20px rgba(139, 92, 246, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  .card-gaming {
+    @apply bg-card p-6 border-2;
+    border-color: #3d2f5f;
+    border-style: double;
+    background: 
+      linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+    box-shadow: 
+      inset 0 1px 1px rgba(255, 255, 255, 0.1),
+      0 8px 24px rgba(0, 0, 0, 0.5);
+    position: relative;
+  }
+
+  .card-gaming::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(139, 92, 246, 0.5), transparent);
+  }
+
+  .card-gaming-subtle {
+    @apply bg-card/50 border;
+    border-color: #2d2340;
+    border-style: solid;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.03) 0%, rgba(6, 182, 212, 0.03) 100%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .bg-gradient-gaming {
+    @apply bg-gradient-to-r from-primary to-secondary;
+  }
+
+  .ornate-corner {
+    position: relative;
+  }
+
+  .ornate-corner::before,
+  .ornate-corner::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: rgba(139, 92, 246, 0.6);
+  }
+
+  .ornate-corner::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+
+  .ornate-corner::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #8b5cf6, #7c3aed);
+  border-radius: 0px;
+  border: 1px solid #6d28d9;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7c3aed;
+}
