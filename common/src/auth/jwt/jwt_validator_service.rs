@@ -1,204 +1,266 @@
-use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 use serde::Deserialize;
-use std::sync::{Arc, OnceLock, RwLock};
+use std::collections::HashMap;
+use std::sync::{OnceLock, RwLock};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, warn};
 
 use crate::{auth::token_validator_service::TokenValidatorService, config::env_config::EnvConfig};
 
 #[derive(Debug, Deserialize)]
+struct TokenHeader {
+    kid: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct Claims {
+    exp: Option<i64>,
+    iat: Option<i64>,
+    jti: Option<String>,
+    email: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct IntrospectionResponse {
+    active: bool,
     email: Option<String>,
 }
 
 pub struct JwtValidatorService {}
 
-struct CachedDecodingKey {
-    key: Arc<DecodingKey>,
+#[derive(Clone)]
+struct CachedTokenValidation {
+    is_valid: bool,
+    email: Option<String>,
     cached_at: Instant,
 }
 
-static DECODING_KEY_CACHE: OnceLock<RwLock<Option<CachedDecodingKey>>> = OnceLock::new();
+// Cache for token validation results (hash of token -> validation result)
+static TOKEN_CACHE: OnceLock<RwLock<HashMap<String, CachedTokenValidation>>> = OnceLock::new();
 
 impl JwtValidatorService {
-    fn key_cache() -> &'static RwLock<Option<CachedDecodingKey>> {
-        DECODING_KEY_CACHE.get_or_init(|| RwLock::new(None))
+    fn token_cache() -> &'static RwLock<HashMap<String, CachedTokenValidation>> {
+        TOKEN_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
     }
 
-    fn key_cache_ttl() -> Duration {
+    fn valid_cache_ttl() -> Duration {
         Duration::from_secs(EnvConfig::get_keycloak_public_key_cache_ttl_seconds())
     }
 
-    fn get_cached_decoding_key(ttl: Duration) -> Option<Arc<DecodingKey>> {
-        let cache = Self::key_cache();
+    fn invalid_cache_ttl() -> Duration {
+        Duration::from_secs(60) // Cache invalid tokens for 1 minute
+    }
+
+    fn get_cached_validation(token_hash: &str) -> Option<CachedTokenValidation> {
+        let cache = Self::token_cache();
         let guard = cache.read().ok()?;
-        match guard.as_ref() {
-            Some(entry) if entry.cached_at.elapsed() < ttl => Some(Arc::clone(&entry.key)),
-            _ => None,
+        let entry = guard.get(token_hash)?;
+        
+        let ttl = if entry.is_valid {
+            Self::valid_cache_ttl()
+        } else {
+            Self::invalid_cache_ttl()
+        };
+
+        if entry.cached_at.elapsed() < ttl {
+            Some(entry.clone())
+        } else {
+            None
         }
     }
 
-    fn set_cached_decoding_key(key: Arc<DecodingKey>) {
-        let cache = Self::key_cache();
+    fn set_cached_validation(token_hash: String, is_valid: bool, email: Option<String>) {
+        let cache = Self::token_cache();
         if let Ok(mut guard) = cache.write() {
-            *guard = Some(CachedDecodingKey {
-                key,
+            guard.insert(token_hash, CachedTokenValidation {
+                is_valid,
+                email,
                 cached_at: Instant::now(),
             });
         }
+    }
+
+    fn compute_token_hash(token: &str) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        let mut hasher = DefaultHasher::new();
+        token.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
+    }
+
+    fn check_token_expiration(token: &str) -> bool {
+        // Manually decode JWT payload (base64url encoded JSON between the two dots)
+        let parts: Vec<&str> = token.split('.').collect();
+        if parts.len() != 3 {
+            debug!("Invalid JWT format");
+            return false;
+        }
+
+        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+
+        // Decode the header (first part) to get kid
+        let header_base64 = parts[0];
+        let header_decoded = URL_SAFE_NO_PAD.decode(header_base64).ok();
+        let header_kid = header_decoded
+            .and_then(|bytes| serde_json::from_slice::<TokenHeader>(&bytes).ok())
+            .and_then(|h| h.kid);
+
+        // Decode the payload (second part)
+        let payload_base64 = parts[1];
+        let decoded_bytes = match URL_SAFE_NO_PAD.decode(payload_base64) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                debug!(error = %err, "Failed to decode JWT payload");
+                return false;
+            }
+        };
+
+        let claims: Claims = match serde_json::from_slice(&decoded_bytes) {
+            Ok(c) => c,
+            Err(err) => {
+                debug!(error = %err, "Failed to parse claims");
+                return false;
+            }
+        };
+
+        if let Some(exp) = claims.exp {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            
+            debug!(
+                kid = ?header_kid, 
+                jti = ?claims.jti, 
+                iat = ?claims.iat,
+                exp = exp, 
+                now = now, 
+                "Checking token expiration"
+            );
+            
+            if exp < now {
+                warn!(exp = exp, now = now, kid = ?header_kid, jti = ?claims.jti, "Token expired");
+                return false;
+            }
+            debug!(exp = exp, kid = ?header_kid, jti = ?claims.jti, "Token expiration check passed");
+            true
+        } else {
+            warn!("Token missing exp claim");
+            false
+        }
+    }
+
+    async fn introspect_token(keycloak_url: &str, client_id: &str, client_secret: &str, token: &str) -> Result<IntrospectionResponse, String> {
+        let introspect_url = format!("{}/protocol/openid-connect/token/introspect", keycloak_url);
+        
+        let params = HashMap::from([
+            ("token".to_string(), token.to_string()),
+            ("client_id".to_string(), client_id.to_string()),
+            ("client_secret".to_string(), client_secret.to_string()),
+        ]);
+
+        let client = reqwest::Client::new();
+        let response = client
+            .post(&introspect_url)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(serde_urlencoded::to_string(&params).unwrap())
+            .send()
+            .await
+            .map_err(|e| format!("Failed to call introspection endpoint: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("Introspection endpoint returned status: {}", response.status()));
+        }
+
+        let introspection: IntrospectionResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse introspection response: {}", e))?;
+
+        Ok(introspection)
     }
 }
 
 impl TokenValidatorService for JwtValidatorService {
     async fn validate_token(&self, token: &str) -> bool {
-        let cache_ttl = Self::key_cache_ttl();
-        let decoding_key = if let Some(cached_key) = Self::get_cached_decoding_key(cache_ttl) {
-            debug!("using cached Keycloak public key");
-            cached_key
-        } else {
-            let keycloak_url = match EnvConfig::get_required("KEYCLOAK_URL") {
-                Ok(url) => url,
-                Err(err) => {
-                    error!(error = %err, "missing or invalid KEYCLOAK_URL");
-                    return false;
-                }
-            };
+        let token_hash = Self::compute_token_hash(token);
 
-            let parsed_resp: serde_json::Value = match reqwest::get(&keycloak_url).await {
-                Ok(response) => match response.error_for_status() {
-                    Ok(valid_response) => match valid_response.json::<serde_json::Value>().await {
-                        Ok(value) => value,
-                        Err(err) => {
-                            error!(error = %err, "failed to parse Keycloak response body");
-                            return false;
-                        }
-                    },
-                    Err(err) => {
-                        error!(error = %err, "Keycloak returned non-success status");
-                        return false;
-                    }
-                },
-                Err(err) => {
-                    error!(error = %err, "failed to call Keycloak endpoint");
-                    return false;
-                }
-            };
+        // Check cache first
+        if let Some(cached) = Self::get_cached_validation(&token_hash) {
+            debug!(is_valid = cached.is_valid, "Using cached token validation");
+            return cached.is_valid;
+        }
 
-            let public_key = match parsed_resp.get("public_key").and_then(|value| value.as_str()) {
-                Some(key) if !key.is_empty() => key,
-                _ => {
-                    error!("public_key not found in Keycloak response");
-                    return false;
-                }
-            };
+        // Local sanity check: expiration
+        if !Self::check_token_expiration(token) {
+            debug!("Token failed local expiration check");
+            Self::set_cached_validation(token_hash, false, None);
+            return false;
+        }
 
-            let rsa_pem = format!(
-                "-----BEGIN PUBLIC KEY-----\n{}\n-----END PUBLIC KEY-----",
-                public_key
-            );
-
-            let fetched_key = match DecodingKey::from_rsa_pem(rsa_pem.as_bytes()) {
-                Ok(key) => Arc::new(key),
-                Err(err) => {
-                    error!(error = %err, "failed to create RSA decoding key from public key");
-                    return false;
-                }
-            };
-
-            Self::set_cached_decoding_key(Arc::clone(&fetched_key));
-            debug!("refreshed Keycloak public key cache");
-            fetched_key
+        // Token passed local checks, now introspect with Keycloak
+        let keycloak_url = match EnvConfig::get_required("KEYCLOAK_URL") {
+            Ok(url) => url,
+            Err(err) => {
+                error!(error = %err, "missing or invalid KEYCLOAK_URL");
+                return false;
+            }
         };
 
-        let validation = Validation::new(Algorithm::RS256);
-        match decode::<serde_json::Value>(token, decoding_key.as_ref(), &validation) {
-            Ok(_) => true,
+        let client_id = EnvConfig::get_optional("KEYCLOAK_CLIENT_ID")
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "idklol-chat".to_string());
+        let client_secret = EnvConfig::get_optional("KEYCLOAK_CLIENT_SECRET")
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "your-client-secret".to_string());
+
+        match Self::introspect_token(&keycloak_url, &client_id, &client_secret, token).await {
+            Ok(introspection) => {
+                if introspection.active {
+                    debug!(email = ?introspection.email, active = true, "Token introspection successful");
+                    Self::set_cached_validation(token_hash, true, introspection.email);
+                    true
+                } else {
+                    warn!(active = false, email = ?introspection.email, "Token introspection returned inactive");
+                    Self::set_cached_validation(token_hash, false, None);
+                    false
+                }
+            }
             Err(err) => {
-                warn!(error = %err, "token validation failed");
+                error!(error = %err, "Token introspection failed");
+                Self::set_cached_validation(token_hash, false, None);
                 false
             }
         }
     }
     
     async fn validate_and_extract_email(&self, token: &str) -> Option<String> {
-        let cache_ttl = Self::key_cache_ttl();
-        let decoding_key = if let Some(cached_key) = Self::get_cached_decoding_key(cache_ttl) {
-            debug!("using cached Keycloak public key for claims extraction");
-            cached_key
-        } else {
-            let keycloak_url = match EnvConfig::get_required("KEYCLOAK_URL") {
-                Ok(url) => url,
-                Err(err) => {
-                    error!(error = %err, "missing or invalid KEYCLOAK_URL");
-                    return None;
-                }
-            };
+        let token_hash = Self::compute_token_hash(token);
 
-            let parsed_resp: serde_json::Value = match reqwest::get(&keycloak_url).await {
-                Ok(response) => match response.error_for_status() {
-                    Ok(valid_response) => match valid_response.json::<serde_json::Value>().await {
-                        Ok(value) => value,
-                        Err(err) => {
-                            error!(error = %err, "failed to parse Keycloak response body");
-                            return None;
-                        }
-                    },
-                    Err(err) => {
-                        error!(error = %err, "Keycloak returned non-success status");
-                        return None;
-                    }
-                },
-                Err(err) => {
-                    error!(error = %err, "failed to call Keycloak endpoint");
-                    return None;
-                }
-            };
-
-            let public_key = match parsed_resp.get("public_key").and_then(|value| value.as_str()) {
-                Some(key) if !key.is_empty() => key,
-                _ => {
-                    error!("public_key not found in Keycloak response");
-                    return None;
-                }
-            };
-
-            let rsa_pem = format!(
-                "-----BEGIN PUBLIC KEY-----\n{}\n-----END PUBLIC KEY-----",
-                public_key
-            );
-
-            let fetched_key = match DecodingKey::from_rsa_pem(rsa_pem.as_bytes()) {
-                Ok(key) => Arc::new(key),
-                Err(err) => {
-                    error!(error = %err, "failed to create RSA decoding key from public key");
-                    return None;
-                }
-            };
-
-            Self::set_cached_decoding_key(Arc::clone(&fetched_key));
-            debug!("refreshed Keycloak public key cache");
-            fetched_key
-        };
-
-        let validation = Validation::new(Algorithm::RS256);
-        match decode::<Claims>(token, decoding_key.as_ref(), &validation) {
-            Ok(token_data) => {
-                match token_data.claims.email {
-                    Some(email) if !email.is_empty() => {
-                        debug!(%email, "successfully extracted email from token");
-                        Some(email)
-                    }
-                    _ => {
-                        warn!("email claim not found or empty in token");
-                        None
-                    }
-                }
-            }
-            Err(err) => {
-                warn!(error = %err, "token validation failed during claims extraction");
-                None
+        // Check cache first
+        if let Some(cached) = Self::get_cached_validation(&token_hash) {
+            if cached.is_valid {
+                debug!(email = ?cached.email, "Using cached token validation for email extraction");
+                return cached.email;
+            } else {
+                debug!("Token is cached as invalid");
+                return None;
             }
         }
+
+        // Validate will populate cache
+        if !self.validate_token(token).await {
+            return None;
+        }
+
+        // Re-check cache after validation
+        if let Some(cached) = Self::get_cached_validation(&token_hash) {
+            return cached.email;
+        }
+
+        None
     }
 }
 

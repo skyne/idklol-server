@@ -92,7 +92,7 @@ impl CharacterManagementService {
             })?;
 
         let response = CreateCharacterResponse {
-            character_id: character_data.id,
+            character_id: character_data.id.to_string(),
             name: character_data.name,
             race: character_data.race_id,
             gender: character_data.gender_id,
@@ -123,7 +123,7 @@ impl CharacterManagementService {
         let characters = characters_data
             .into_iter()
             .map(|data| Character {
-                character_id: data.id,
+                character_id: data.id.to_string(),
                 name: data.name,
                 race: data.race_id,
                 gender: data.gender_id,

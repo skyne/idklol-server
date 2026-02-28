@@ -1,0 +1,28 @@
+FROM rust:1.83-bookworm
+
+# Install cargo-watch for auto-reload
+RUN cargo install cargo-watch
+
+WORKDIR /app
+
+# Copy only dependency manifests first for better caching
+COPY Cargo.toml ./
+COPY characters/Cargo.toml ./characters/
+COPY chat/Cargo.toml ./chat/
+COPY common/Cargo.toml ./common/
+
+# Create dummy files to build dependencies
+RUN mkdir -p characters/src chat/src common/src && \
+    echo "fn main() {}" > characters/src/main.rs && \
+    echo "fn main() {}" > chat/src/main.rs && \
+    echo "pub fn dummy() {}" > common/src/lib.rs
+
+# Build dependencies (will be cached)
+RUN cd chat && cargo build
+
+# Remove dummy files
+RUN rm -rf characters/src chat/src common/src
+
+# The actual source will be mounted as volume
+# cargo-watch will auto-rebuild on changes
+CMD ["cargo", "watch", "-w", "chat", "-w", "common", "-x", "run --bin idklol-chat"]

@@ -4,6 +4,9 @@ use idklol_common::config::env_config::EnvConfig;
 use idklol_common::db;
 use idklol_common::logging::logger_service::LoggerService;
 use tracing::info;
+use idklol_common::auth::jwt::jwt_validator_service::JwtValidatorService;
+use idklol_common::auth::interceptor::jwt_auth_interceptor;
+use std::sync::Arc;
 
 pub mod characters {
     tonic::include_proto!("characters");
@@ -33,11 +36,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let addr = "0.0.0.0:50052".parse()?;
     let character_service = MyCharacterService::with_pool(pool);
-
+    let jwt_validator = Arc::new(JwtValidatorService {});
+    let interceptor = jwt_auth_interceptor(jwt_validator);
     info!(%addr, "character server starting");
 
     Server::builder()
-        .add_service(CharacterServiceServer::new(character_service))
+        .add_service(CharacterServiceServer::with_interceptor(character_service, interceptor))
         .serve(addr)
         .await?;
 

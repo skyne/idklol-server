@@ -1,3 +1,13 @@
 **/target
 **/.git
 **/.DS_Store
+.gitignore
+*.md
+!README.md
+logs/
+keycloak/dev-token.txt
+keycloak/developer-token.txt
+.env
+*.log
+docker-compose*.yml
+Dockerfile*

@@ -25,15 +25,12 @@ impl CatalogService {
         request: Request<CheckCharacterCreationCatalogVersionRequest>,
     ) -> Result<Response<CheckCharacterCreationCatalogVersionResponse>, Status> {
         let cached_version = request.into_inner().cached_version;
-        
         debug!(cached_version = %cached_version, "checking character creation catalog version");
         let latest_version = CatalogCache::current_version().unwrap_or_default();
-
         let is_current = !cached_version.is_empty() && !latest_version.is_empty() && cached_version == latest_version;
         if is_current {
             info!(cached_version = %cached_version, "client cache is current");
         }
-
         Ok(Response::new(CheckCharacterCreationCatalogVersionResponse {
             is_current,
             latest_version,
@@ -42,19 +39,15 @@ impl CatalogService {
 
     pub async fn get_character_creation_catalog(
         &self,
-        _request: Request<()>,
+        request: Request<()>,
     ) -> Result<Response<CharacterCreationCatalog>, Status> {
         debug!("fetching character creation catalog");
-        
-        // Check server cache first
+        // ...existing code...
         if let Some((version, catalog)) = CatalogCache::get() {
             debug!(version = %version, "returning cached catalog");
             return Ok(Response::new(catalog));
         }
-        
         info!("building character creation catalog from database");
-        
-        // Fetch all catalog data in parallel
         let races_future = self.catalog_repo.get_races();
         let genders_future = self.catalog_repo.get_all_genders();
         let skin_colors_future = self.catalog_repo.get_all_skin_colors();
@@ -62,7 +55,6 @@ impl CatalogService {
         let race_gender_future = self.catalog_repo.get_allowed_race_gender();
         let race_gender_skin_future = self.catalog_repo.get_allowed_race_gender_skin_color();
         let race_gender_class_future = self.catalog_repo.get_allowed_race_gender_class();
-        
         let (
             races_result,
             genders_result,
@@ -80,43 +72,34 @@ impl CatalogService {
             race_gender_skin_future,
             race_gender_class_future,
         );
-        
         let races = races_result.map_err(|err| {
             error!(error = %err, "failed to fetch races");
             Status::internal("failed to fetch catalog data")
         })?;
-        
         let genders = genders_result.map_err(|err| {
             error!(error = %err, "failed to fetch genders");
             Status::internal("failed to fetch catalog data")
         })?;
-        
         let skin_colors = skin_colors_result.map_err(|err| {
             error!(error = %err, "failed to fetch skin colors");
             Status::internal("failed to fetch catalog data")
         })?;
-        
         let classes = classes_result.map_err(|err| {
             error!(error = %err, "failed to fetch classes");
             Status::internal("failed to fetch catalog data")
         })?;
-        
         let race_gender = race_gender_result.map_err(|err| {
             error!(error = %err, "failed to fetch race-gender combinations");
             Status::internal("failed to fetch catalog data")
         })?;
-        
         let race_gender_skin = race_gender_skin_result.map_err(|err| {
             error!(error = %err, "failed to fetch race-gender-skin combinations");
             Status::internal("failed to fetch catalog data")
         })?;
-        
         let race_gender_class = race_gender_class_result.map_err(|err| {
             error!(error = %err, "failed to fetch race-gender-class combinations");
             Status::internal("failed to fetch catalog data")
         })?;
-        
-        // Build the catalog
         let catalog = CharacterCreationCatalog {
             version: String::new(), // Will be set by cache
             races: races.into_iter().map(|r| RaceOption {
@@ -150,11 +133,8 @@ impl CatalogService {
                 character_class: rgc.class_id,
             }).collect(),
         };
-        
-        // Cache the catalog
         let version = CatalogCache::set(catalog.clone());
         info!(version = %version, "catalog cached");
-        
         Ok(Response::new(catalog))
     }
 }

@@ -10,6 +10,7 @@ pub mod logging {
 
 pub mod auth {
 	pub mod token_validator_service;
+	pub mod interceptor;
 	pub mod jwt {
 		pub mod jwt_validator_service;
 	}

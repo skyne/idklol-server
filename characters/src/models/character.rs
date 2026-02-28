@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Character model representing a created character
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct Character {
-    pub id: String,
+    pub id: sqlx::types::Uuid,
     pub name: String,
     pub user_email: String,
     pub race_id: i32,

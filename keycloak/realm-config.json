@@ -2,6 +2,11 @@
   "realm": "idklol",
   "enabled": true,
   "registrationAllowed": true,
+  "accessTokenLifespan": 36000,
+  "accessTokenLifespanForImplicitFlow": 36000,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
   "roles": {
     "realm": [
       { "name": "admin" },
@@ -38,12 +43,23 @@
     {
       "clientId": "idklol-chat",
       "enabled": true,
-      "publicClient": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
       "directAccessGrantsEnabled": true,
       "standardFlowEnabled": true,
+      "secret": "chat-client-secret-12345",
       "redirectUris": [
         "http://localhost/*"
       ]
+    },
+    {
+      "clientId": "idklol-developer-key",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "secret": "dev-secret-12345"
     },
     {
       "clientId": "idklol-characters",
