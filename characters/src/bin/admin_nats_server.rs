@@ -2,7 +2,7 @@ use idklol_common::config::env_config::EnvConfig;
 use idklol_common::db;
 use idklol_common::logging::logger_service::LoggerService;
 use idklol_common::auth::jwt::jwt_validator_service::JwtValidatorService;
-use tracing::{info, error, warn};
+use tracing::{info, error, warn, debug};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use futures::StreamExt;
@@ -72,15 +72,23 @@ struct ErrorResponse {
 
 // Helper to extract JWT from NATS message headers
 fn extract_jwt_from_headers(headers: &async_nats::HeaderMap) -> Option<String> {
-    headers.get("Authorization")
-        .map(|v| v.as_str())
-        .and_then(|auth_header| {
-            if auth_header.starts_with("Bearer ") {
-                Some(auth_header[7..].to_string())
-            } else {
-                None
-            }
-        })
+    use tracing::debug;
+    
+    debug!("NATS message headers: {:?}", headers);
+    
+    let auth_value = headers.get("Authorization").map(|v| v.as_str());
+    debug!("Authorization header value: {:?}", auth_value);
+    
+    auth_value.and_then(|auth_header| {
+        if auth_header.starts_with("Bearer ") {
+            let token = auth_header[7..].to_string();
+            debug!("Extracted JWT token (first 30 chars): {}", &token[..token.len().min(30)]);
+            Some(token)
+        } else {
+            debug!("Authorization header doesn't start with 'Bearer '");
+            None
+        }
+    })
 }
 
 async fn handle_catalog_admin_request(
@@ -90,10 +98,14 @@ async fn handle_catalog_admin_request(
     jwt_validator: Arc<JwtValidatorService>,
     client: async_nats::Client,
 ) {
+    debug!("Received NATS message on subject: {}", subject);
+    debug!("Message has headers: {}", message.headers.is_some());
+    
     // Extract and validate JWT
     let jwt = match message.headers.as_ref().and_then(|h| extract_jwt_from_headers(h)) {
         Some(token) => token,
         None => {
+            warn!("No JWT token found in NATS message headers");
             let response = ErrorResponse { success: false, error: "Missing Authorization header".to_string() };
             if let Some(reply) = message.reply {
                 let _ = client.publish(reply, serde_json::to_vec(&response).unwrap().into()).await;
@@ -118,6 +130,8 @@ async fn handle_catalog_admin_request(
     info!(email = %claims.email, subject = %subject, "Processing admin catalog request");
 
     // Route to appropriate handler based on subject
+    debug!("Exact subject string for matching: '{}'", subject);
+    debug!("Subject length: {}", subject.len());
     let response_bytes = match subject.as_str() {
         // Races
         "admin.catalog.races.list" => {
@@ -319,7 +333,33 @@ async fn handle_catalog_admin_request(
             }
         }
 
-        // Combinations
+        // Catalog version for cache validation
+        "admin.catalog.version" => {
+            let version = catalog_admin_service.get_catalog_version();
+            serde_json::to_vec(&SuccessResponse { success: true, data: version }).unwrap()
+        }
+
+        // Combinations - List operations
+        "admin.catalog.combinations.race_gender.list" => {
+            match catalog_admin_service.list_race_gender_allowed().await {
+                Ok(combinations) => serde_json::to_vec(&SuccessResponse { success: true, data: combinations }).unwrap(),
+                Err(e) => serde_json::to_vec(&ErrorResponse { success: false, error: e }).unwrap(),
+            }
+        }
+        "admin.catalog.combinations.race_gender_skin_color.list" => {
+            match catalog_admin_service.list_race_gender_skin_color_allowed().await {
+                Ok(combinations) => serde_json::to_vec(&SuccessResponse { success: true, data: combinations }).unwrap(),
+                Err(e) => serde_json::to_vec(&ErrorResponse { success: false, error: e }).unwrap(),
+            }
+        }
+        "admin.catalog.combinations.race_gender_class.list" => {
+            match catalog_admin_service.list_race_gender_class_allowed().await {
+                Ok(combinations) => serde_json::to_vec(&SuccessResponse { success: true, data: combinations }).unwrap(),
+                Err(e) => serde_json::to_vec(&ErrorResponse { success: false, error: e }).unwrap(),
+            }
+        }
+
+        // Combinations - Set/Remove operations
         "admin.catalog.combinations.race_gender.set" => {
             match serde_json::from_slice::<SetCombinationRequest>(&message.payload) {
                 Ok(req) => {

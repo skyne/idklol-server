@@ -1,48 +1,79 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { Database, Users, Palette, Swords, GitBranch } from "lucide-react";
+
+const catalogSections = [
+  {
+    title: "Races",
+    description: "Manage playable character races",
+    icon: Users,
+    href: "/admin/catalog/races",
+    color: "text-blue-500",
+  },
+  {
+    title: "Genders",
+    description: "Manage character genders",
+    icon: Users,
+    href: "/admin/catalog/genders",
+    color: "text-purple-500",
+  },
+  {
+    title: "Classes",
+    description: "Manage character classes",
+    icon: Swords,
+    href: "/admin/catalog/classes",
+    color: "text-red-500",
+  },
+  {
+    title: "Skin Colors",
+    description: "Manage available skin tones",
+    icon: Palette,
+    href: "/admin/catalog/skin-colors",
+    color: "text-orange-500",
+  },
+  {
+    title: "Combinations",
+    description: "Manage allowed race-gender-class-skin combinations",
+    icon: GitBranch,
+    href: "/admin/catalog/combinations",
+    color: "text-green-500",
+  },
+];
 
 export default function CatalogPage() {
-  const { data: races, isLoading } = useQuery({
-    queryKey: ['races'],
-    queryFn: async () => {
-      const res = await fetch('/api/catalog/races');
-      if (!res.ok) throw new Error('Failed to fetch races');
-      return res.json();
-    },
-  });
-
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center gap-3 mb-6">
+        <Database size={32} className="text-primary" />
         <h1 className="text-3xl font-heading">Catalog Management</h1>
       </div>
 
-      <div className="card-gaming">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-heading">Races</h2>
-          <button className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 flex items-center gap-2">
-            <Plus size={16} />
-            Add Race
-          </button>
-        </div>
+      <p className="text-muted-foreground mb-8">
+        Manage character creation options and allowed combinations
+      </p>
 
-        {isLoading ? (
-          <p className="text-muted-foreground">Loading...</p>
-        ) : (
-          <div className="  space-y-2">
-            {races?.races?.map((race: any) => (
-              <div key={race.race} className="p-3 bg-muted rounded-lg flex items-center justify-between">
-                <span>{race.name}</span>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 bg-secondary text-white rounded text-sm">Edit</button>
-                  <button className="px-3 py-1 bg-destructive text-white rounded text-sm">Delete</button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {catalogSections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <Link
+              key={section.href}
+              href={section.href}
+              className="card-gaming p-6 hover:bg-muted/50 transition-colors group"
+            >
+              <div className="flex items-start gap-4">
+                <div className={`${section.color} group-hover:scale-110 transition-transform`}>
+                  <Icon size={32} />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-heading mb-2">{section.title}</h2>
+                  <p className="text-sm text-muted-foreground">{section.description}</p>
                 </div>
               </div>
-            )) || <p className="text-muted-foreground">No races found</p>}
-          </div>
-        )}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

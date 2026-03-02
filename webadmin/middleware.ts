@@ -11,6 +11,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/signin', request.url));
     }
 
+    // Check if token refresh failed
+    if (session.error === 'RefreshAccessTokenError') {
+      return NextResponse.redirect(new URL('/signin?error=TokenExpired', request.url));
+    }
+
     // Check for admin role
     const hasAdminRole = session.user?.roles?.includes('admin');
     if (!hasAdminRole) {

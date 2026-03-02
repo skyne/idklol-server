@@ -189,6 +189,8 @@ impl JwtValidatorService {
             ("client_secret".to_string(), client_secret.to_string()),
         ]);
 
+        debug!(url = %introspect_url, client_id = %client_id, token_preview = %&token[..token.len().min(20)], "Calling introspection endpoint");
+
         let client = reqwest::Client::new();
         let response = client
             .post(&introspect_url)
@@ -198,13 +200,19 @@ impl JwtValidatorService {
             .await
             .map_err(|e| format!("Failed to call introspection endpoint: {}", e))?;
 
-        if !response.status().is_success() {
-            return Err(format!("Introspection endpoint returned status: {}", response.status()));
+        let status = response.status();
+        debug!(status = %status, "Introspection response status");
+
+        if !status.is_success() {
+            return Err(format!("Introspection endpoint returned status: {}", status));
         }
 
-        let introspection: IntrospectionResponse = response
-            .json()
-            .await
+        let response_text = response.text().await
+            .map_err(|e| format!("Failed to read introspection response: {}", e))?;
+        
+        debug!(response_body = %response_text, "Introspection response body");
+
+        let introspection: IntrospectionResponse = serde_json::from_str(&response_text)
             .map_err(|e| format!("Failed to parse introspection response: {}", e))?;
 
         Ok(introspection)

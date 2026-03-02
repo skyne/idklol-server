@@ -38,6 +38,14 @@
         { "type": "password", "value": "user123" }
       ],
       "realmRoles": ["user"]
+    },
+    {
+      "username": "service-account-idklol-webadmin",
+      "enabled": true,
+      "serviceAccountClientId": "idklol-webadmin",
+      "clientRoles": {
+        "realm-management": ["view-users", "view-clients", "view-realm"]
+      }
     }
   ],
   "clients": [

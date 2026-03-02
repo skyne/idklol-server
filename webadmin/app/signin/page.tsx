@@ -1,26 +1,32 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Shield, Zap, Database } from "lucide-react";
 
-export default function SignIn() {
+function SignInContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Check for error query parameter
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'TokenExpired') {
+      setError('Your session has expired. Please sign in again.');
+    }
+  }, [searchParams]);
 
   const handleSignIn = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const result = await signIn("keycloak", { 
+      // signIn with redirect: true doesn't return a value, it redirects immediately
+      await signIn("keycloak", { 
         callbackUrl: "/admin",
         redirect: true 
       });
-      
-      if (result?.error) {
-        setError(result.error);
-        setIsLoading(false);
-      }
     } catch (err) {
       console.error("Sign in error:", err);
       setError("Failed to connect to authentication service");
@@ -97,5 +103,20 @@ export default function SignIn() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignIn() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SignInContent />
+    </Suspense>
   );
 }

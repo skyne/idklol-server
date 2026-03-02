@@ -10,14 +10,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const races = await publishRequest({
-      subject: 'admin.catalog.races.list',
+    const classes = await publishRequest({
+      subject: 'admin.catalog.classes.list',
       jwt: session.accessToken,
     });
 
-    return NextResponse.json(races);
+    return NextResponse.json(classes);
   } catch (error: any) {
-    return handleApiError(error, 'GET /api/catalog/races');
+    return handleApiError(error, 'GET /api/catalog/classes');
   }
 }
 
@@ -30,14 +30,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     
-    const race = await publishRequest({
-      subject: 'admin.catalog.races.create',
+    const classItem = await publishRequest({
+      subject: 'admin.catalog.classes.create',
       payload: body,
       jwt: session.accessToken,
     });
 
-    return NextResponse.json(race);
+    return NextResponse.json(classItem);
   } catch (error: any) {
-    return handleApiError(error, 'POST /api/catalog/races');
+    return handleApiError(error, 'POST /api/catalog/classes');
   }
 }

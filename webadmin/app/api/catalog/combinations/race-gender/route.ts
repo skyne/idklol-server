@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { publishRequest } from '@/lib/nats-client';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -10,13 +10,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const characters = await publishRequest({
-      subject: 'admin.characters.list',
+    const combinations = await publishRequest({
+      subject: 'admin.catalog.combinations.race_gender.list',
       jwt: session.accessToken,
     });
 
-    return NextResponse.json(characters);
+    return NextResponse.json(combinations);
   } catch (error: any) {
-    return handleApiError(error, 'GET /api/characters');
+    return handleApiError(error, 'GET /api/catalog/combinations/race-gender');
   }
 }

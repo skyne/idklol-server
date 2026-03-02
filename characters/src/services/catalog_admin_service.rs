@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use crate::repository::{CatalogAdminRepository, CatalogRepository, PostgresCatalogAdminRepository, PostgresCatalogRepository};
-use crate::models::catalog::{Race, Gender, SkinColor, Class};
+use crate::models::catalog::{Race, Gender, SkinColor, Class, RaceGenderAllowed, RaceGenderSkinColorAllowed, RaceGenderClassAllowed};
 use crate::services::catalog_cache::CatalogCache;
-use tracing::{info, warn};
+use tracing::info;
 
 pub struct CatalogAdminService {
     catalog_admin_repo: Arc<dyn CatalogAdminRepository>,
@@ -216,5 +216,28 @@ impl CatalogAdminService {
         self.catalog_repo.get_all_classes()
             .await
             .map_err(|e| format!("Failed to list classes: {}", e))
+    }
+
+    pub async fn list_race_gender_allowed(&self) -> Result<Vec<RaceGenderAllowed>, String> {
+        self.catalog_repo.get_allowed_race_gender()
+            .await
+            .map_err(|e| format!("Failed to list race-gender combinations: {}", e))
+    }
+
+    pub async fn list_race_gender_skin_color_allowed(&self) -> Result<Vec<RaceGenderSkinColorAllowed>, String> {
+        self.catalog_repo.get_allowed_race_gender_skin_color()
+            .await
+            .map_err(|e| format!("Failed to list race-gender-skin color combinations: {}", e))
+    }
+
+    pub async fn list_race_gender_class_allowed(&self) -> Result<Vec<RaceGenderClassAllowed>, String> {
+        self.catalog_repo.get_allowed_race_gender_class()
+            .await
+            .map_err(|e| format!("Failed to list race-gender-class combinations: {}", e))
+    }
+
+    // Get current catalog version for cache validation
+    pub fn get_catalog_version(&self) -> String {
+        CatalogCache::current_version().unwrap_or_else(|| "none".to_string())
     }
 }

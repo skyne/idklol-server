@@ -4,6 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Database, Users, LogOut, Activity } from "lucide-react";
+import { useCatalogVersion } from "../hooks/useCatalogVersion";
 
 export default function AdminLayout({
   children,
@@ -12,6 +13,9 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  
+  // Monitor catalog version and auto-invalidate queries when it changes
+  const { version } = useCatalogVersion();
 
   const navItems = [
     { href: "/admin", label: "Dashboard", icon: Activity },
@@ -56,6 +60,11 @@ export default function AdminLayout({
           <div className="mb-4 text-sm">
             <p className="text-foreground">{session?.user?.name}</p>
             <p className="text-muted-foreground text-xs">{session?.user?.email}</p>
+            {version && (
+              <p className="text-muted-foreground text-xs mt-2 font-mono">
+                Cache: {version.substring(0, 8)}...
+              </p>
+            )}
           </div>
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
