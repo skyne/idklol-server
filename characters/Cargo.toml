@@ -15,6 +15,10 @@ path = "src/bin/grpc_server.rs"
 name = "characters-admin"
 path = "src/bin/admin_nats_server.rs"
 
+[[bin]]
+name = "characters-server"
+path = "src/bin/game_server_nats.rs"
+
 [dependencies]
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "signal"] }
 tokio-stream = { version = "0.1"}

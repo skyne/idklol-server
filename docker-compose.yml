@@ -120,6 +120,43 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  characters-server:
+    build:
+      context: .
+      dockerfile: characters/Dockerfile
+      args:
+        BINARY_NAME: characters-server
+    environment:
+      DATABASE_URL: postgresql://idklol:idklol_dev_password@postgres:5432/idklol_characters
+      NATS_URL: nats://nats:4222
+      LOG_LEVEL: info
+      LOG_OUTPUT: console
+      LOG_FORMAT: plain
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ue-server:
+    build:
+      context: ../idklol-client
+      dockerfile: Dockerfile.server
+    ports:
+      - "7777:7777/udp"
+      - "7787:7787/udp"
+    environment:
+      MAP_PATH: "/Game/ThirdPerson/Maps/ThirdPersonMap"
+      GAME_PORT: "7777"
+      NATS_URL: "nats://nats:4222"
+      INSTANCE_ID: "server-1"
+      LOG_LEVEL: "Log"
+    depends_on:
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
   webadmin:
     build:
       context: ./webadmin
