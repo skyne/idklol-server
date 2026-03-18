@@ -61,6 +61,7 @@ services:
       retries: 5
 
   chatserver:
+    profiles: ["grpc"]
     build:
       context: .
       dockerfile: chat/Dockerfile.dev
@@ -85,6 +86,7 @@ services:
     restart: unless-stopped
 
   characters-grpc:
+    profiles: ["grpc"]
     build:
       context: .
       dockerfile: characters/Dockerfile.dev
@@ -185,6 +187,8 @@ services:
       INSTANCE_ID: "dev-server-1"
       LOG_LEVEL: "VeryVerbose"
     depends_on:
+      characters-server:
+        condition: service_started
       nats:
         condition: service_healthy
     restart: unless-stopped

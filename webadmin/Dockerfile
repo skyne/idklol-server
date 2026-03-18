@@ -15,6 +15,8 @@ COPY . .
 # Build the application
 RUN npm run build
 
+RUN mkdir -p /app/public
+
 # Production stage
 FROM node:20-alpine AS runner
 

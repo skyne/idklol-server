@@ -4,7 +4,7 @@
 
 Before starting, ensure you have:
 - Docker & Docker Compose
-- The following ports available: 3000, 4222, 5432, 8080, 8222, 50052, 50053
+- The following ports available: 3000, 4222, 5432, 7777/udp, 8080, 8222
 
 ## Step 1: Install Web Admin Dependencies
 
@@ -37,7 +37,7 @@ Wait for all services to start. You should see:
 - ✅ Keycloak started
 - ✅ PostgreSQL healthy
 - ✅ NATS healthy  
-- ✅ characters-grpc started
+- ✅ characters-server started
 - ✅ characters-admin started
 - ✅ webadmin started
 
@@ -73,7 +73,7 @@ docker exec -it nats nats sub "admin.>"
 
 1. Go to "Characters" in sidebar
 2. Should see list of all characters
-3. Try creating a character via gRPC client first, then refresh to see it appear
+3. Try creating/updating a character via the admin flow, then refresh to see it appear
 
 ## Troubleshooting
 
@@ -113,7 +113,7 @@ docker ps | grep postgres
 docker logs postgres
 
 # Restart characters services
-docker-compose restart characters-grpc characters-admin
+docker-compose restart characters-server characters-admin
 ```
 
 ## Next Steps
@@ -160,13 +160,9 @@ Characters Admin Service (Rust)
 PostgreSQL Database
 ```
 
-Existing game clients still use:
+Dedicated server-side service communication uses:
 ```
-Game Client → gRPC (localhost:50053)
-    ↓
-Characters gRPC Service (Rust)
-    ↓
-PostgreSQL Database (same DB!)
+UE Dedicated Server ↔ NATS ↔ Characters Server/Admin
 ```
 
 ## Key Files to Know
