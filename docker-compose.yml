@@ -104,9 +104,7 @@ services:
     restart: unless-stopped
 
   chatserver:
-    build:
-      context: .
-      dockerfile: chat/Dockerfile
+    image: ghcr.io/skyne/idklol-server-chatserver:latest
     ports:
       - "50052:50052"
     environment:
@@ -124,11 +122,7 @@ services:
     restart: unless-stopped
 
   characters-grpc:
-    build:
-      context: .
-      dockerfile: characters/Dockerfile
-      args:
-        BINARY_NAME: characters-grpc
+    image: ghcr.io/skyne/idklol-server-characters-grpc:latest
     ports:
       - "50053:50052"
     environment:
@@ -227,9 +221,7 @@ services:
     restart: unless-stopped
 
   webadmin:
-    build:
-      context: ./webadmin
-      dockerfile: Dockerfile
+    image: ghcr.io/skyne/idklol-server-webadmin:latest
     ports:
       - "3000:3000"
     environment:
