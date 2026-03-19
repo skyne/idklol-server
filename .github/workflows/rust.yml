@@ -11,6 +11,9 @@
 #   ghcr.io/<owner>/<repo>-characters-admin
 #   ghcr.io/<owner>/<repo>-characters-server
 #   ghcr.io/<owner>/<repo>-chatserver
+#   ghcr.io/<owner>/<repo>-npc-interactions-bridge
+#   ghcr.io/<owner>/<repo>-npc-metadata-service
+#   ghcr.io/<owner>/<repo>-webadmin
 
 name: Rust
 
@@ -83,6 +86,18 @@ jobs:
           - name: chatserver
             context: .
             dockerfile: chat/Dockerfile
+            build_args: ""
+          - name: npc-interactions-bridge
+            context: .
+            dockerfile: npc-interactions-bridge/Dockerfile
+            build_args: ""
+          - name: npc-metadata-service
+            context: .
+            dockerfile: npc-metadata-service/Dockerfile
+            build_args: ""
+          - name: webadmin
+            context: ./webadmin
+            dockerfile: webadmin/Dockerfile
             build_args: ""
 
     steps:
