@@ -6,6 +6,7 @@ use tracing::{debug, error, info, info_span, warn, Instrument};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use futures::StreamExt;
+use std::time::Duration;
 
 use characters_core::services::catalog_admin_service::CatalogAdminService;
 use characters_core::services::character_admin_service::CharacterAdminService;
@@ -532,6 +533,94 @@ async fn handle_character_admin_request(
     }
 }
 
+async fn run_catalog_subscription_loop(
+    subject_pattern: String,
+    catalog_admin_service: Arc<CatalogAdminService>,
+    jwt_validator: Arc<JwtValidatorService>,
+    client: async_nats::Client,
+) {
+    loop {
+        match client.subscribe(subject_pattern.clone()).await {
+            Ok(mut subscriber) => {
+                info!(subject = %subject_pattern, "Listening for catalog admin requests");
+
+                while let Some(message) = subscriber.next().await {
+                    let subject = message.subject.to_string();
+                    let span_subject = subject.clone();
+                    let has_reply = message.reply.is_some();
+                    let payload_size = message.payload.len();
+
+                    handle_catalog_admin_request(
+                        subject,
+                        message,
+                        catalog_admin_service.clone(),
+                        jwt_validator.clone(),
+                        client.clone(),
+                    )
+                    .instrument(info_span!(
+                        "nats.admin.catalog.request",
+                        nats_subject = %span_subject,
+                        has_reply = has_reply,
+                        payload_size = payload_size
+                    ))
+                    .await;
+                }
+
+                warn!(subject = %subject_pattern, "Catalog admin subscription stream ended; resubscribing");
+            }
+            Err(e) => {
+                error!(subject = %subject_pattern, error = %e, "Failed to subscribe to catalog admin subject");
+            }
+        }
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
+async fn run_character_subscription_loop(
+    subject_pattern: String,
+    character_admin_service: Arc<CharacterAdminService>,
+    jwt_validator: Arc<JwtValidatorService>,
+    client: async_nats::Client,
+) {
+    loop {
+        match client.subscribe(subject_pattern.clone()).await {
+            Ok(mut subscriber) => {
+                info!(subject = %subject_pattern, "Listening for character admin requests");
+
+                while let Some(message) = subscriber.next().await {
+                    let subject = message.subject.to_string();
+                    let span_subject = subject.clone();
+                    let has_reply = message.reply.is_some();
+                    let payload_size = message.payload.len();
+
+                    handle_character_admin_request(
+                        subject,
+                        message,
+                        character_admin_service.clone(),
+                        jwt_validator.clone(),
+                        client.clone(),
+                    )
+                    .instrument(info_span!(
+                        "nats.admin.characters.request",
+                        nats_subject = %span_subject,
+                        has_reply = has_reply,
+                        payload_size = payload_size
+                    ))
+                    .await;
+                }
+
+                warn!(subject = %subject_pattern, "Character admin subscription stream ended; resubscribing");
+            }
+            Err(e) => {
+                error!(subject = %subject_pattern, error = %e, "Failed to subscribe to character admin subject");
+            }
+        }
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     EnvConfig::init_from_path(concat!(env!("CARGO_MANIFEST_DIR"), "/.env"));
@@ -569,69 +658,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "admin.catalog.skincolors.>",
         "admin.catalog.classes.>",
         "admin.catalog.combinations.>",
+        "admin.catalog.version",
     ];
 
     for subject_pattern in catalog_subjects {
-        let mut subscriber = client.subscribe(subject_pattern.to_string()).await?;
         let catalog_service = catalog_admin_service.clone();
         let validator = jwt_validator.clone();
         let nats_client = client.clone();
-        
-        tokio::spawn(async move {
-            info!(subject = %subject_pattern, "Listening for catalog admin requests");
-            while let Some(message) = subscriber.next().await {
-                let subject = message.subject.to_string();
-                let span_subject = subject.clone();
-                let has_reply = message.reply.is_some();
-                let payload_size = message.payload.len();
+        let subject = subject_pattern.to_string();
 
-                handle_catalog_admin_request(
-                    subject,
-                    message,
-                    catalog_service.clone(),
-                    validator.clone(),
-                    nats_client.clone(),
-                )
-                .instrument(info_span!(
-                    "nats.admin.catalog.request",
-                    nats_subject = %span_subject,
-                    has_reply = has_reply,
-                    payload_size = payload_size
-                ))
-                .await;
-            }
+        tokio::spawn(async move {
+            run_catalog_subscription_loop(subject, catalog_service, validator, nats_client).await;
         });
     }
 
-    // Subscribe to character admin subjects
-    let mut char_subscriber = client.subscribe("admin.characters.>".to_string()).await?;
     let char_service = character_admin_service.clone();
     let char_validator = jwt_validator.clone();
     let char_client = client.clone();
-    
-    tokio::spawn(async move {
-        info!("Listening for character admin requests");
-        while let Some(message) = char_subscriber.next().await {
-            let subject = message.subject.to_string();
-            let span_subject = subject.clone();
-            let has_reply = message.reply.is_some();
-            let payload_size = message.payload.len();
 
-            handle_character_admin_request(
-                subject,
-                message,
-                char_service.clone(),
-                char_validator.clone(),
-                char_client.clone(),
-            )
-            .instrument(info_span!(
-                "nats.admin.characters.request",
-                nats_subject = %span_subject,
-                has_reply = has_reply,
-                payload_size = payload_size
-            ))
-            .await;
-        }
+    tokio::spawn(async move {
+        run_character_subscription_loop(
+            "admin.characters.>".to_string(),
+            char_service,
+            char_validator,
+            char_client,
+        )
+        .await;
     });
 
     info!("Characters admin NATS server is running");

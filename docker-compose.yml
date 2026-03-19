@@ -5,6 +5,7 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KEYCLOAK_IMPORT: /opt/keycloak/data/import/realm-config.json
+      KC_HOSTNAME_STRICT: "false"
     ports:
       - "8080:8080"
     tmpfs:
@@ -76,10 +77,7 @@ services:
     restart: "no"
 
   npc-interactions-bridge:
-    image: idklol-server-npc-interactions-bridge:prod
-    build:
-      context: .
-      dockerfile: npc-interactions-bridge/Dockerfile
+    image: ghcr.io/skyne/idklol-server-npc-interactions-bridge:latest
     stdin_open: true
     tty: true
     environment:
@@ -106,7 +104,6 @@ services:
     restart: unless-stopped
 
   chatserver:
-    profiles: ["grpc"]
     build:
       context: .
       dockerfile: chat/Dockerfile
@@ -127,7 +124,6 @@ services:
     restart: unless-stopped
 
   characters-grpc:
-    profiles: ["grpc"]
     build:
       context: .
       dockerfile: characters/Dockerfile
@@ -154,16 +150,12 @@ services:
     restart: unless-stopped
 
   characters-admin:
-    build:
-      context: .
-      dockerfile: characters/Dockerfile
-      args:
-        BINARY_NAME: characters-admin
+    image: ghcr.io/skyne/idklol-server-characters-admin:latest
     environment:
       DATABASE_URL: postgresql://idklol:idklol_dev_password@postgres:5432/idklol_characters
-      KEYCLOAK_URL: http://keycloak:8080/realms/idklol
-      KEYCLOAK_CLIENT_ID: idklol-chat
-      KEYCLOAK_CLIENT_SECRET: chat-client-secret-12345
+      KEYCLOAK_URL: http://webadmin:3002/realms/idklol
+      KEYCLOAK_CLIENT_ID: idklol-webadmin
+      KEYCLOAK_CLIENT_SECRET: webadmin-client-secret-12345
       NATS_URL: nats://nats:4222
       LOG_LEVEL: info
       LOG_OUTPUT: console
@@ -181,11 +173,7 @@ services:
     restart: unless-stopped
 
   characters-server:
-    build:
-      context: .
-      dockerfile: characters/Dockerfile
-      args:
-        BINARY_NAME: characters-server
+    image: ghcr.io/skyne/idklol-server-characters-server:latest
     environment:
       DATABASE_URL: postgresql://idklol:idklol_dev_password@postgres:5432/idklol_characters
       NATS_URL: nats://nats:4222
@@ -203,9 +191,7 @@ services:
     restart: unless-stopped
 
   npc-metadata-service:
-    build:
-      context: .
-      dockerfile: npc-metadata-service/Dockerfile
+    image: ghcr.io/skyne/idklol-server-npc-metadata-service:latest
     environment:
       DATABASE_URL: postgresql://idklol:idklol_dev_password@postgres:5432/idklol_npc_metadata
       NATS_URL: nats://nats:4222
@@ -223,9 +209,7 @@ services:
     restart: unless-stopped
 
   ue-server:
-    build:
-      context: ../idklol-client
-      dockerfile: Dockerfile.server
+    image: ghcr.io/skyne/ue-server:latest
     ports:
       - "7777:7777/udp"
       - "7787:7787/udp"
@@ -250,12 +234,20 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      NEXTAUTH_URL: http://localhost:3000
+      HOSTNAME: 0.0.0.0
+      AUTH_DEBUG: "true"
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: https://localhost:3000
+      NEXTAUTH_URL: https://localhost:3000
       NEXTAUTH_SECRET: change-this-in-production-use-openssl-rand-base64-32
       KEYCLOAK_ID: idklol-webadmin
       KEYCLOAK_SECRET: webadmin-client-secret-12345
-      KEYCLOAK_ISSUER: http://keycloak:8080/realms/idklol
+      KEYCLOAK_ISSUER: https://localhost:3000/realms/idklol
+      KEYCLOAK_EXTERNAL_ISSUER: https://localhost:3000/realms/idklol
       NATS_URL: nats://nats:4222
+      TRACING_OTLP_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      TRACING_SAMPLE_RATIO: "1.0"
     depends_on:
       keycloak:
         condition: service_started
@@ -266,7 +258,7 @@ services:
     restart: unless-stopped
 
   loki:
-    profiles: ["observability"]
+    
     image: grafana/loki:2.9.8
     command: ["-config.file=/etc/loki/config.yml"]
     ports:
@@ -277,9 +269,11 @@ services:
     restart: unless-stopped
 
   promtail:
-    profiles: ["observability"]
-    image: grafana/promtail:2.9.8
+    
+    image: grafana/promtail:3.2.1
     command: ["-config.file=/etc/promtail/config.yml"]
+    environment:
+      DOCKER_API_VERSION: "1.44"
     volumes:
       - ./observability/promtail/config.yml:/etc/promtail/config.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -290,8 +284,9 @@ services:
     restart: unless-stopped
 
   tempo:
-    profiles: ["observability"]
+    
     image: grafana/tempo:2.6.1
+    user: "0"
     command: ["-config.file=/etc/tempo/config.yml"]
     ports:
       - "3200:3200"
@@ -301,7 +296,7 @@ services:
     restart: unless-stopped
 
   otel-collector:
-    profiles: ["observability"]
+    
     image: otel/opentelemetry-collector-contrib:0.111.0
     command: ["--config=/etc/otel-collector/config.yml"]
     ports:
@@ -315,11 +310,12 @@ services:
     restart: unless-stopped
 
   prometheus:
-    profiles: ["observability"]
+    
     image: prom/prometheus:v2.54.1
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-remote-write-receiver"
     ports:
       - "9090:9090"
     volumes:
@@ -335,7 +331,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    profiles: ["observability"]
+    
     image: grafana/grafana:11.1.0
     ports:
       - "3001:3000"

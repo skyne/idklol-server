@@ -43,15 +43,20 @@ async function refreshAccessToken(token: any) {
   }
 }
 
+const externalIssuer = process.env.KEYCLOAK_EXTERNAL_ISSUER ?? process.env.KEYCLOAK_ISSUER!
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  basePath: "/api/auth",
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     KeycloakProvider({
       clientId: process.env.KEYCLOAK_ID!,
       clientSecret: process.env.KEYCLOAK_SECRET!,
       issuer: process.env.KEYCLOAK_ISSUER!,
+      authorization: `${externalIssuer}/protocol/openid-connect/auth`,
     }),
   ],
+
   callbacks: {
     async jwt({ token, account, profile }) {
       // Initial sign in

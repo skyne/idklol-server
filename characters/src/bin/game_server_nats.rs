@@ -6,7 +6,8 @@
 /// Subjects handled:
 ///   characters.get        request: {"id":"<uuid>"}
 ///                         response: {"id":"…","name":"…","race":N,"gender":N,
-///                                    "skin_color":N,"character_class":N,"created_at":"…"}
+///                                    "skin_color":N,"character_class":N,
+///                                    "created_at":"…","user_email":"…"}
 ///                         or {"error":"…"} on failure
 use idklol_common::config::env_config::EnvConfig;
 use idklol_common::db;
@@ -40,6 +41,9 @@ struct CharacterResponse {
     character_class: i32,
     /// RFC-3339 string
     created_at: String,
+    /// Keycloak user email that owns this character.
+    /// Used by ATPSCoreGameMode::PostLogin to verify character ownership against the JWT.
+    user_email: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -90,12 +94,13 @@ async fn handle_characters_get(
                         info!(id = %uuid, name = %ch.name, "characters.get: found");
                         let resp = CharacterResponse {
                             id: ch.id.to_string(),
-                            name: ch.name,
+                            name: ch.name.clone(),
                             race: ch.race_id,
                             gender: ch.gender_id,
                             skin_color: ch.skin_color_id,
                             character_class: ch.class_id,
                             created_at: ch.created_at.to_rfc3339(),
+                            user_email: ch.user_email.clone(),
                         };
                         serde_json::to_vec(&resp).unwrap()
                     }

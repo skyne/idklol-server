@@ -300,6 +300,9 @@ services:
       KEYCLOAK_SECRET: webadmin-client-secret-12345
       KEYCLOAK_ISSUER: http://keycloak:8080/realms/idklol
       NATS_URL: nats://nats:4222
+      TRACING_OTLP_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      TRACING_SAMPLE_RATIO: "1.0"
     volumes:
       - ./webadmin:/app:cached
       - /app/node_modules
@@ -325,8 +328,10 @@ services:
 
   promtail:
     profiles: ["observability"]
-    image: grafana/promtail:2.9.8
+    image: grafana/promtail:3.2.1
     command: ["-config.file=/etc/promtail/config.yml"]
+    environment:
+      DOCKER_API_VERSION: "1.44"
     volumes:
       - ./observability/promtail/config.yml:/etc/promtail/config.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -339,6 +344,7 @@ services:
   tempo:
     profiles: ["observability"]
     image: grafana/tempo:2.6.1
+    user: "0"
     command: ["-config.file=/etc/tempo/config.yml"]
     ports:
       - "3200:3200"

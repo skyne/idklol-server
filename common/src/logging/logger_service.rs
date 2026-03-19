@@ -325,7 +325,7 @@ impl LoggerService {
                 "service.name",
                 service_name.clone(),
             )]))
-            .with_simple_exporter(exporter)
+            .with_batch_exporter(exporter, opentelemetry_sdk::runtime::Tokio)
             .build();
 
         let tracer = provider.tracer(service_name);
