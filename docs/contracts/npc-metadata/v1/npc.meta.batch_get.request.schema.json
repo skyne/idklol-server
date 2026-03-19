@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npc.meta.batch_get.request.schema.json",
+  "title": "NpcMetaBatchGetRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["npc_ids"],
+  "properties": {
+    "npc_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    }
+  }
+}

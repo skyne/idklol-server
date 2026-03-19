@@ -1,0 +1,7 @@
+FROM rustlang/rust:nightly-bookworm
+
+RUN cargo install cargo-watch --version 8.5.2 --locked
+
+WORKDIR /app
+
+CMD ["cargo", "watch", "-x", "run --bin npc-metadata-service"]

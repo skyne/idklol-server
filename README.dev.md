@@ -19,6 +19,32 @@ dev.cmd
 docker compose -f docker-compose.dev.yml up --build
 ```
 
+## Optional Observability Stack
+
+An opt-in profile is available for logs, traces, and metrics:
+- **Grafana** (UI)
+- **Loki + Promtail** (log shipping/storage)
+- **Tempo + OTel Collector** (trace ingest/storage)
+- **Prometheus** (metrics scraping)
+
+Start app + observability together:
+
+```bash
+docker compose -f docker-compose.dev.yml --profile observability up --build
+```
+
+Endpoints:
+- Grafana: http://localhost:3001 (admin/admin)
+- Loki API: http://localhost:3100
+- Tempo API: http://localhost:3200
+- Prometheus: http://localhost:9090
+- OTel Collector OTLP: grpc://localhost:4317 and http://localhost:4318
+
+Notes:
+- Logs are available immediately through Promtail -> Loki.
+- Rust services now export traces to OTLP by default in compose via `TRACING_OTLP_ENABLED=true` and `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317`.
+- If you run without the observability profile and want to silence OTLP exporter errors, set `TRACING_OTLP_ENABLED=false` for those services.
+
 ## How It Works
 
 - **Source mounted as volumes**: Your local code is mounted into containers

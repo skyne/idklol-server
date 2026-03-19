@@ -15,6 +15,7 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Ensure public dir exists (may be absent if project has no static assets)
 RUN mkdir -p /app/public
 
 # Production stage

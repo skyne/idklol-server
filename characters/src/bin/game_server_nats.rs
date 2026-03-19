@@ -11,7 +11,7 @@
 use idklol_common::config::env_config::EnvConfig;
 use idklol_common::db;
 use idklol_common::logging::logger_service::LoggerService;
-use tracing::{error, info, warn};
+use tracing::{error, info, info_span, warn, Instrument};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use futures::StreamExt;
@@ -54,61 +54,74 @@ async fn handle_characters_get(
     character_service: Arc<CharacterAdminService>,
     client: async_nats::Client,
 ) {
-    let reply_subject = match message.reply.clone() {
-        Some(r) => r,
-        None => {
-            warn!("characters.get: no reply subject, ignoring");
-            return;
-        }
-    };
+    let subject = message.subject.to_string();
+    let has_reply = message.reply.is_some();
+    let payload_size = message.payload.len();
 
-    let response_bytes: Vec<u8> = match serde_json::from_slice::<GetCharacterRequest>(&message.payload) {
-        Err(e) => {
-            warn!("characters.get: invalid request payload: {}", e);
-            serde_json::to_vec(&ErrorResponse { error: format!("invalid request: {}", e) }).unwrap()
-        }
-        Ok(req) => {
-            let uuid = match uuid::Uuid::parse_str(&req.id) {
-                Ok(u) => u,
-                Err(e) => {
-                    warn!(id = %req.id, "characters.get: invalid UUID: {}", e);
-                    let bytes = serde_json::to_vec(&ErrorResponse { error: format!("invalid UUID: {}", e) }).unwrap();
-                    if let Err(e) = client.publish(reply_subject, bytes.into()).await {
-                        error!("characters.get: failed to send reply: {}", e);
+    async move {
+        let reply_subject = match message.reply.clone() {
+            Some(r) => r,
+            None => {
+                warn!("characters.get: no reply subject, ignoring");
+                return;
+            }
+        };
+
+        let response_bytes: Vec<u8> = match serde_json::from_slice::<GetCharacterRequest>(&message.payload) {
+            Err(e) => {
+                warn!("characters.get: invalid request payload: {}", e);
+                serde_json::to_vec(&ErrorResponse { error: format!("invalid request: {}", e) }).unwrap()
+            }
+            Ok(req) => {
+                let uuid = match uuid::Uuid::parse_str(&req.id) {
+                    Ok(u) => u,
+                    Err(e) => {
+                        warn!(id = %req.id, "characters.get: invalid UUID: {}", e);
+                        let bytes = serde_json::to_vec(&ErrorResponse { error: format!("invalid UUID: {}", e) }).unwrap();
+                        if let Err(e) = client.publish(reply_subject, bytes.into()).await {
+                            error!("characters.get: failed to send reply: {}", e);
+                        }
+                        return;
                     }
-                    return;
-                }
-            };
+                };
 
-            match character_service.get_character_by_id(uuid).await {
-                Ok(Some(ch)) => {
-                    info!(id = %uuid, name = %ch.name, "characters.get: found");
-                    let resp = CharacterResponse {
-                        id: ch.id.to_string(),
-                        name: ch.name,
-                        race: ch.race_id,
-                        gender: ch.gender_id,
-                        skin_color: ch.skin_color_id,
-                        character_class: ch.class_id,
-                        created_at: ch.created_at.to_rfc3339(),
-                    };
-                    serde_json::to_vec(&resp).unwrap()
-                }
-                Ok(None) => {
-                    warn!(id = %uuid, "characters.get: not found");
-                    serde_json::to_vec(&ErrorResponse { error: "character not found".to_string() }).unwrap()
-                }
-                Err(e) => {
-                    error!(id = %uuid, "characters.get: db error: {}", e);
-                    serde_json::to_vec(&ErrorResponse { error: "internal error".to_string() }).unwrap()
+                match character_service.get_character_by_id(uuid).await {
+                    Ok(Some(ch)) => {
+                        info!(id = %uuid, name = %ch.name, "characters.get: found");
+                        let resp = CharacterResponse {
+                            id: ch.id.to_string(),
+                            name: ch.name,
+                            race: ch.race_id,
+                            gender: ch.gender_id,
+                            skin_color: ch.skin_color_id,
+                            character_class: ch.class_id,
+                            created_at: ch.created_at.to_rfc3339(),
+                        };
+                        serde_json::to_vec(&resp).unwrap()
+                    }
+                    Ok(None) => {
+                        warn!(id = %uuid, "characters.get: not found");
+                        serde_json::to_vec(&ErrorResponse { error: "character not found".to_string() }).unwrap()
+                    }
+                    Err(e) => {
+                        error!(id = %uuid, "characters.get: db error: {}", e);
+                        serde_json::to_vec(&ErrorResponse { error: "internal error".to_string() }).unwrap()
+                    }
                 }
             }
-        }
-    };
+        };
 
-    if let Err(e) = client.publish(reply_subject, response_bytes.into()).await {
-        error!("characters.get: failed to send reply: {}", e);
+        if let Err(e) = client.publish(reply_subject, response_bytes.into()).await {
+            error!("characters.get: failed to send reply: {}", e);
+        }
     }
+    .instrument(info_span!(
+        "nats.characters.get",
+        nats_subject = %subject,
+        has_reply = has_reply,
+        payload_size = payload_size
+    ))
+    .await;
 }
 
 // ─── entry point ─────────────────────────────────────────────────────────────

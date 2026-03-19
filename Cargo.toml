@@ -2,7 +2,9 @@
 members = [
   "chat",
   "characters",
-  "common"
+  "common",
+  "npc-interactions-bridge",
+  "npc-metadata-service"
 ]
 resolver = "3"
 

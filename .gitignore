@@ -8,3 +8,6 @@ dev-token.txt
 developer-token.txt
 keycloak/dev-token.txt
 /keycloak-data/*
+
+# Environment files
+.env

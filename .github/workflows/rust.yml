@@ -7,10 +7,10 @@
 #
 # IMAGES PRODUCED
 # ---------------
-#   ghcr.io/<owner>/characters-grpc
-#   ghcr.io/<owner>/characters-admin
-#   ghcr.io/<owner>/characters-server
-#   ghcr.io/<owner>/chatserver
+#   ghcr.io/<owner>/<repo>-characters-grpc
+#   ghcr.io/<owner>/<repo>-characters-admin
+#   ghcr.io/<owner>/<repo>-characters-server
+#   ghcr.io/<owner>/<repo>-chatserver
 
 name: Rust
 
@@ -52,6 +52,9 @@ jobs:
       - name: Test
         run: cargo test --verbose
 
+      - name: Contract schema alignment tests (npc-metadata-service)
+        run: cargo test -p idklol-npc-metadata-service models::npc::tests -- --nocapture
+
   # ── 2. Docker — build & push all service images ─────────────────────────────
   docker:
     name: Docker (${{ matrix.service.name }})
@@ -89,7 +92,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.service.name }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ github.event.repository.name }}-${{ matrix.service.name }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}

@@ -5,7 +5,7 @@ use crate::chat::ChatMessage;
 use chrono::Local;
 use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{debug, info};
+use tracing::{debug, info, info_span, Instrument};
 
 #[derive(Debug)]
 pub struct MyChatService {
@@ -30,37 +30,46 @@ impl ChatService for MyChatService {
         &self,
         request: Request<ChatMessage>,
     ) -> Result<Response<()>, Status> {
-        info!("chat message request received");
+        let has_authorization = request.metadata().get("authorization").is_some();
 
-        let auth_header = request.metadata().get("authorization");
-        debug!(has_authorization = auth_header.is_some(), "authorization header inspected");
+        async move {
+            info!("chat message request received");
+            debug!(has_authorization, "authorization header inspected");
 
-        let mut msg = request.into_inner();
-        msg.timestamp = Local::now().format(DATE_FORMAT_STRING).to_string();
-    
+            let mut msg = request.into_inner();
+            msg.timestamp = Local::now().format(DATE_FORMAT_STRING).to_string();
 
-        let subscribers = self.subscribers.lock().await;
-        for tx in subscribers.iter() {
-            // Ignore send errors (e.g., disconnected clients)
-            let _ = tx.send(Ok(msg.clone())).await;
+            let subscribers = self.subscribers.lock().await;
+            for tx in subscribers.iter() {
+                let _ = tx.send(Ok(msg.clone())).await;
+            }
+
+            Ok(Response::new(()))
         }
-
-        Ok(Response::new(()))
+        .instrument(info_span!(
+            "grpc.chat.message",
+            has_authorization = has_authorization
+        ))
+        .await
     }
 
     async fn stream(
         &self,
         _request: Request<()>,
     ) -> Result<Response<Self::StreamStream>, Status> {
-        info!("chat stream request received");
+        async move {
+            info!("chat stream request received");
 
-        let (tx, rx) = mpsc::channel(16);
+            let (tx, rx) = mpsc::channel(16);
 
-        {
-            let mut subscribers = self.subscribers.lock().await;
-            subscribers.push(tx);
+            {
+                let mut subscribers = self.subscribers.lock().await;
+                subscribers.push(tx);
+            }
+
+            Ok(Response::new(ReceiverStream::new(rx)))
         }
-
-        Ok(Response::new(ReceiverStream::new(rx)))
+        .instrument(info_span!("grpc.chat.stream"))
+        .await
     }
 }

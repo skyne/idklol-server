@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npc.meta.interaction_context.response.schema.json",
+  "title": "NpcMetaResolveContextResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "npc_id",
+    "player_id",
+    "template_key",
+    "version",
+    "speaker",
+    "listener",
+    "scene",
+    "goal",
+    "tone",
+    "rules",
+    "policy"
+  ],
+  "properties": {
+    "npc_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "player_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "template_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer"
+    },
+    "speaker": {
+      "$ref": "#/$defs/actor"
+    },
+    "listener": {
+      "$ref": "#/$defs/actor"
+    },
+    "scene": {
+      "type": "string"
+    },
+    "goal": {
+      "type": "string"
+    },
+    "tone": {
+      "type": "string"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    }
+  },
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "faction": {
+          "type": "string"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interaction_radius", "cooldown_ms", "max_concurrent_interactions"],
+      "properties": {
+        "interaction_radius": {
+          "type": "number"
+        },
+        "cooldown_ms": {
+          "type": "integer"
+        },
+        "max_concurrent_interactions": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

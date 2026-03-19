@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npc.meta.batch_get.response.schema.json",
+  "title": "NpcMetaBatchGetResponse",
+  "oneOf": [
+    {
+      "$ref": "npc.meta.npc_collection.response.schema.json"
+    },
+    {
+      "$ref": "npc.meta.error.response.schema.json"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npc.meta.by_zone.response.schema.json",
+  "title": "NpcMetaByZoneResponse",
+  "oneOf": [
+    {
+      "$ref": "npc.meta.npc_collection.response.schema.json"
+    },
+    {
+      "$ref": "npc.meta.error.response.schema.json"
+    }
+  ]
+}

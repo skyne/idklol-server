@@ -2,7 +2,7 @@ use idklol_common::config::env_config::EnvConfig;
 use idklol_common::db;
 use idklol_common::logging::logger_service::LoggerService;
 use idklol_common::auth::jwt::jwt_validator_service::JwtValidatorService;
-use tracing::{info, error, warn, debug};
+use tracing::{debug, error, info, info_span, warn, Instrument};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use futures::StreamExt;
@@ -581,7 +581,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!(subject = %subject_pattern, "Listening for catalog admin requests");
             while let Some(message) = subscriber.next().await {
                 let subject = message.subject.to_string();
-                handle_catalog_admin_request(subject, message, catalog_service.clone(), validator.clone(), nats_client.clone()).await;
+                let span_subject = subject.clone();
+                let has_reply = message.reply.is_some();
+                let payload_size = message.payload.len();
+
+                handle_catalog_admin_request(
+                    subject,
+                    message,
+                    catalog_service.clone(),
+                    validator.clone(),
+                    nats_client.clone(),
+                )
+                .instrument(info_span!(
+                    "nats.admin.catalog.request",
+                    nats_subject = %span_subject,
+                    has_reply = has_reply,
+                    payload_size = payload_size
+                ))
+                .await;
             }
         });
     }
@@ -596,7 +613,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("Listening for character admin requests");
         while let Some(message) = char_subscriber.next().await {
             let subject = message.subject.to_string();
-            handle_character_admin_request(subject, message, char_service.clone(), char_validator.clone(), char_client.clone()).await;
+            let span_subject = subject.clone();
+            let has_reply = message.reply.is_some();
+            let payload_size = message.payload.len();
+
+            handle_character_admin_request(
+                subject,
+                message,
+                char_service.clone(),
+                char_validator.clone(),
+                char_client.clone(),
+            )
+            .instrument(info_span!(
+                "nats.admin.characters.request",
+                nats_subject = %span_subject,
+                has_reply = has_reply,
+                payload_size = payload_size
+            ))
+            .await;
         }
     });
 

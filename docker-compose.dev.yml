@@ -40,6 +40,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U idklol -d idklol_characters"]
@@ -60,6 +61,60 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  ollama-model-pull:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: ["pull", "qwen2.5:1.5b"]
+    depends_on:
+      ollama:
+        condition: service_started
+    restart: "no"
+
+  npc-interactions-bridge:
+    image: idklol-server-npc-interactions-bridge:dev
+    build:
+      context: .
+      dockerfile: npc-interactions-bridge/Dockerfile.dev
+    stdin_open: true
+    tty: true
+    environment:
+      NATS_URL: nats://nats:4222
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen2.5:1.5b
+      NPC_BRIDGE_REQUEST_SUBJECT: npc.interactions.request
+      NPC_BRIDGE_RESPONSE_SUBJECT: npc.interactions.response
+      NPC_BRIDGE_PROMPTS_DIR: /app/npc-interactions-bridge/prompts
+      NPC_BRIDGE_DEFAULT_PROMPT: default/system
+      LOG_LEVEL: debug
+      LOG_OUTPUT: console
+      LOG_FORMAT: plain
+      TRACING_OTLP_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      TRACING_SAMPLE_RATIO: "1.0"
+    command: ["cargo", "watch", "-x", "run --bin npc-interactions-bridge"]
+    volumes:
+      - ./:/app:cached
+      - cargo_registry:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - npc_bridge_target:/app/target
+    depends_on:
+      nats:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      ollama-model-pull:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   chatserver:
     profiles: ["grpc"]
     build:
@@ -74,6 +129,9 @@ services:
       LOG_LEVEL: info
       LOG_OUTPUT: console
       LOG_FORMAT: plain
+      TRACING_OTLP_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      TRACING_SAMPLE_RATIO: "1.0"
     volumes:
       # Mount source code for live editing
       - ./:/app:cached
@@ -100,6 +158,9 @@ services:
       LOG_LEVEL: debug
       LOG_OUTPUT: console
       LOG_FORMAT: plain
+      TRACING_OTLP_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      TRACING_SAMPLE_RATIO: "1.0"
     command: ["cargo", "watch", "-x", "run --bin characters-grpc"]
     volumes:
       # Mount source code for live editing
@@ -128,6 +189,9 @@ services:
       LOG_LEVEL: debug
       LOG_OUTPUT: console
       LOG_FORMAT: plain
+      TRACING_OTLP_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      TRACING_SAMPLE_RATIO: "1.0"
     command: ["cargo", "run", "--bin", "characters-admin"]
     volumes:
       # Mount source code for live editing
@@ -155,6 +219,9 @@ services:
       LOG_LEVEL: debug
       LOG_OUTPUT: console
       LOG_FORMAT: plain
+      TRACING_OTLP_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      TRACING_SAMPLE_RATIO: "1.0"
     command: ["cargo", "watch", "-x", "run --bin characters-server"]
     volumes:
       # Mount source code for live editing
@@ -163,6 +230,32 @@ services:
       - cargo_registry:/usr/local/cargo/registry
       - cargo_git:/usr/local/cargo/git
       - characters_target:/app/target
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
+
+  npc-metadata-service:
+    build:
+      context: .
+      dockerfile: npc-metadata-service/Dockerfile.dev
+    environment:
+      DATABASE_URL: postgresql://idklol:idklol_dev_password@postgres:5432/idklol_npc_metadata
+      NATS_URL: nats://nats:4222
+      LOG_LEVEL: debug
+      LOG_OUTPUT: console
+      LOG_FORMAT: plain
+      TRACING_OTLP_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      TRACING_SAMPLE_RATIO: "1.0"
+    command: ["cargo", "watch", "-x", "run --bin npc-metadata-service"]
+    volumes:
+      - ./:/app:cached
+      - cargo_registry:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - npc_metadata_target:/app/target
     depends_on:
       postgres:
         condition: service_healthy
@@ -219,6 +312,95 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  loki:
+    profiles: ["observability"]
+    image: grafana/loki:2.9.8
+    command: ["-config.file=/etc/loki/config.yml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    restart: unless-stopped
+
+  promtail:
+    profiles: ["observability"]
+    image: grafana/promtail:2.9.8
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./observability/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail_positions:/tmp
+    depends_on:
+      loki:
+        condition: service_started
+    restart: unless-stopped
+
+  tempo:
+    profiles: ["observability"]
+    image: grafana/tempo:2.6.1
+    command: ["-config.file=/etc/tempo/config.yml"]
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./observability/tempo/config.yml:/etc/tempo/config.yml:ro
+      - tempo_data:/tmp/tempo
+    restart: unless-stopped
+
+  otel-collector:
+    profiles: ["observability"]
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otel-collector/config.yml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./observability/otel-collector/config.yml:/etc/otel-collector/config.yml:ro
+    depends_on:
+      tempo:
+        condition: service_started
+    restart: unless-stopped
+
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v2.54.1
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:11.1.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   keycloak_data:
@@ -226,3 +408,11 @@ volumes:
   cargo_git:
   chat_target:
   characters_target:
+  npc_bridge_target:
+  npc_metadata_target:
+  ollama_data:
+  loki_data:
+  promtail_positions:
+  tempo_data:
+  prometheus_data:
+  grafana_data:

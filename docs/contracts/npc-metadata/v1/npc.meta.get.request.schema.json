@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npc.meta.get.request.schema.json",
+  "title": "NpcMetaGetRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["npc_id"],
+  "properties": {
+    "npc_id": {
+      "type": "string",
+      "format": "uuid"
+    }
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "npc.meta.npc_full.schema.json",
+  "title": "NpcMetaFull",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "npc_id",
+    "display_name",
+    "role",
+    "model_id",
+    "faction",
+    "template_key",
+    "tone",
+    "rules",
+    "is_persistent",
+    "version",
+    "updated_at",
+    "spawn_points"
+  ],
+  "properties": {
+    "npc_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "archetype_id": {
+      "type": ["string", "null"],
+      "format": "uuid"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "faction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "template_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tone": {
+      "type": "string"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "is_persistent": {
+      "type": "boolean"
+    },
+    "version": {
+      "type": "integer"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "spawn_points": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/spawn_point"
+      }
+    },
+    "behavior_config": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/behavior_config"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "spawn_point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "zone_id", "x", "y", "z", "yaw", "spawn_policy"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "zone_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "yaw": {
+          "type": "number"
+        },
+        "spawn_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schedule": {}
+      }
+    },
+    "behavior_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interaction_radius", "cooldown_ms", "max_concurrent_interactions"],
+      "properties": {
+        "interaction_radius": {
+          "type": "number"
+        },
+        "cooldown_ms": {
+          "type": "integer"
+        },
+        "max_concurrent_interactions": {
+          "type": "integer"
+        },
+        "ai_state_defaults": {}
+      }
+    }
+  }
+}

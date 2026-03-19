@@ -8,6 +8,10 @@ pub mod logging {
 	pub mod logger_service;
 }
 
+pub mod cli {
+	pub mod service_command_interface;
+}
+
 pub mod auth {
 	pub mod token_validator_service;
 	pub mod interceptor;

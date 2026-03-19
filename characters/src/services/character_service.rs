@@ -15,6 +15,7 @@ use crate::services::catalog_service::CatalogService;
 use crate::services::character_management_service::CharacterManagementService;
 use idklol_common::auth::jwt::jwt_validator_service::JwtValidatorService;
 use sqlx::PgPool;
+use tracing::{info_span, Instrument};
 
 /// Main gRPC service that delegates to specialized sub-services
 pub struct MyCharacterService {
@@ -44,27 +45,39 @@ impl CharacterService for MyCharacterService {
         &self,
         request: Request<CheckCharacterCreationCatalogVersionRequest>,
     ) -> Result<Response<CheckCharacterCreationCatalogVersionResponse>, Status> {
-        self.catalog_service.check_character_creation_catalog_version(request).await
+        self.catalog_service
+            .check_character_creation_catalog_version(request)
+            .instrument(info_span!("grpc.characters.check_catalog_version"))
+            .await
     }
 
     async fn get_character_creation_catalog(
         &self,
         request: Request<()>,
     ) -> Result<Response<CharacterCreationCatalog>, Status> {
-        self.catalog_service.get_character_creation_catalog(request).await
+        self.catalog_service
+            .get_character_creation_catalog(request)
+            .instrument(info_span!("grpc.characters.get_catalog"))
+            .await
     }
 
     async fn create_character(
         &self,
         request: Request<CreateCharacterRequest>,
     ) -> Result<Response<CreateCharacterResponse>, Status> {
-        self.character_management_service.create_character(request).await
+        self.character_management_service
+            .create_character(request)
+            .instrument(info_span!("grpc.characters.create"))
+            .await
     }
 
     async fn list_created_characters(
         &self,
         request: Request<ListCreatedCharactersRequest>,
     ) -> Result<Response<ListCreatedCharactersResponse>, Status> {
-        self.character_management_service.list_created_characters(request).await
+        self.character_management_service
+            .list_created_characters(request)
+            .instrument(info_span!("grpc.characters.list"))
+            .await
     }
 }
