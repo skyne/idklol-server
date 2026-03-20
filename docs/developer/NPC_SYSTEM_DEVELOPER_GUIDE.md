@@ -142,6 +142,13 @@ and falls back to legacy path fields when ids are absent.
 UE server resolves actor class by ID under fixed folder:
 - `/Game/Characters/NPC/<ActorClassId>.<ActorClassId>_C`
 
+Important:
+- Blueprint asset name is `<ActorClassId>` (no `_C` in the asset name).
+- `_C` is the generated Blueprint class object suffix in class paths.
+- If using `actor_class_id`, provide `<ActorClassId>` without `_C`.
+
+`actor_class_path` legacy payloads are normalized into `actor_class_id`; both `...<Name>.<Name>` and `...<Name>.<Name>_C` are accepted.
+
 So keep NPC actor blueprints under `/Game/Characters/NPC/` and name them consistently.
 
 ---

@@ -14,6 +14,15 @@
 #   ghcr.io/<owner>/<repo>-npc-interactions-bridge
 #   ghcr.io/<owner>/<repo>-npc-metadata-service
 #   ghcr.io/<owner>/<repo>-webadmin
+#
+# REQUIRED SECRET FOR INFRA PROMOTION
+# -----------------------------------
+#   - INFRA_REPO_TOKEN: token with permission to dispatch workflows in
+#     skyne/idklol-infra.
+#
+# OPTIONAL REPOSITORY VARIABLE
+# ----------------------------
+#   - INFRA_AUTOMERGE: set to "true" to request auto-merge on infra promotion PRs.
 
 name: Rust
 
@@ -136,3 +145,34 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  promote-infra:
+    name: Promote images to infra
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+
+    steps:
+      - name: Trigger idklol-infra promotion workflow
+        env:
+          GH_TOKEN: ${{ secrets['INFRA_REPO_TOKEN'] }}
+          SERVER_SHA: ${{ github.sha }}
+          INFRA_AUTOMERGE: ${{ vars.INFRA_AUTOMERGE }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::INFRA_REPO_TOKEN is not configured; skipped infra promotion trigger."
+            exit 0
+          fi
+
+          automerge="false"
+          if [ "${INFRA_AUTOMERGE:-}" = "true" ]; then
+            automerge="true"
+          fi
+
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/skyne/idklol-infra/actions/workflows/promote-server-images.yml/dispatches \
+            -d "{\"ref\":\"main\",\"inputs\":{\"server_sha\":\"${SERVER_SHA}\",\"tfvars_file\":\"prod.public.tfvars\",\"automerge\":\"${automerge}\"}}"

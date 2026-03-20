@@ -6,6 +6,8 @@ Gaming-themed Next.js admin panel for managing IDKLOL game server catalog and ch
 
 - 🎮 Dark gaming aesthetic with neon accents and glassmorphism
 - 🔐 Keycloak SSO authentication with admin role enforcement
+- 👤 Keycloak realm user management with password reset and admin-role assignment
+- 🔑 Full token bundle generation for UE client testing (`access_token` + `refresh_token`)
 - 📊 Catalog management (races, classes, genders, skin colors, combinations)
 - 👥 Character administration (view all, delete, update)
 - ⚡ Real-time NATS messaging for backend communication
@@ -60,6 +62,7 @@ webadmin/
 │   ├── admin/           # Admin dashboard pages
 │   │   ├── catalog/     # Catalog management
 │   │   └── characters/  # Character administration
+│   │   └── users/       # Keycloak user management + token generation
 │   ├── api/             # Next.js API routes (NATS proxies)
 │   ├── signin/          # Login page
 │   └── unauthorized/    # Access denied page
@@ -77,6 +80,9 @@ NEXTAUTH_SECRET=your-secret-key
 KEYCLOAK_ID=idklol-webadmin
 KEYCLOAK_SECRET=webadmin-client-secret-12345
 KEYCLOAK_ISSUER=http://keycloak:8080/realms/idklol
+KEYCLOAK_ADMIN_USERNAME=admin
+KEYCLOAK_ADMIN_PASSWORD=admin
+KEYCLOAK_TOKEN_CLIENT_ID=idklol-characters
 NATS_URL=nats://nats:4222
 ```
 
@@ -136,6 +142,7 @@ docker run -p 3000:3000 idklol-webadmin
 - Admin role verification at both Next.js and Rust service layers
 - JWT tokens passed securely via NATS message headers
 - Session management via NextAuth
+- User-management and token-minting routes also require an authenticated session with the `admin` realm role
 
 ## Future Enhancements
 
