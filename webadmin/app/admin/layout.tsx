@@ -3,7 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Database, Users, LogOut, Activity } from "lucide-react";
+import { Database, Users, LogOut, Activity, Bot } from "lucide-react";
 import { useCatalogVersion } from "../hooks/useCatalogVersion";
 
 export default function AdminLayout({
@@ -21,6 +21,7 @@ export default function AdminLayout({
     { href: "/admin", label: "Dashboard", icon: Activity },
     { href: "/admin/catalog", label: "Catalog", icon: Database },
     { href: "/admin/characters", label: "Characters", icon: Users },
+    { href: "/admin/npcs", label: "NPCs", icon: Bot },
   ];
 
   return (

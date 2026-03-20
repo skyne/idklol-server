@@ -6,6 +6,9 @@ use std::sync::Once;
 
 static DOTENV_INIT: Once = Once::new();
 pub const DEFAULT_KEYCLOAK_PUBLIC_KEY_CACHE_TTL_SECONDS: u64 = 300;
+pub const DEFAULT_STARTUP_RETRY_MAX_ATTEMPTS: u32 = 30;
+pub const DEFAULT_STARTUP_RETRY_INITIAL_DELAY_MS: u64 = 1000;
+pub const DEFAULT_STARTUP_RETRY_MAX_DELAY_MS: u64 = 30000;
 
 #[derive(Debug)]
 pub enum EnvConfigError {
@@ -124,6 +127,27 @@ impl EnvConfig {
 			Ok(Some(seconds)) => seconds,
 			Ok(None) => DEFAULT_KEYCLOAK_PUBLIC_KEY_CACHE_TTL_SECONDS,
 			Err(_) => DEFAULT_KEYCLOAK_PUBLIC_KEY_CACHE_TTL_SECONDS,
+		}
+	}
+
+	pub fn get_startup_retry_max_attempts() -> u32 {
+		match Self::get_optional_parsed::<u32>("STARTUP_RETRY_MAX_ATTEMPTS") {
+			Ok(Some(attempts)) if attempts > 0 => attempts,
+			_ => DEFAULT_STARTUP_RETRY_MAX_ATTEMPTS,
+		}
+	}
+
+	pub fn get_startup_retry_initial_delay_ms() -> u64 {
+		match Self::get_optional_parsed::<u64>("STARTUP_RETRY_INITIAL_DELAY_MS") {
+			Ok(Some(delay_ms)) if delay_ms > 0 => delay_ms,
+			_ => DEFAULT_STARTUP_RETRY_INITIAL_DELAY_MS,
+		}
+	}
+
+	pub fn get_startup_retry_max_delay_ms() -> u64 {
+		match Self::get_optional_parsed::<u64>("STARTUP_RETRY_MAX_DELAY_MS") {
+			Ok(Some(delay_ms)) if delay_ms > 0 => delay_ms,
+			_ => DEFAULT_STARTUP_RETRY_MAX_DELAY_MS,
 		}
 	}
 }

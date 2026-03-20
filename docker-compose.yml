@@ -5,15 +5,23 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KEYCLOAK_IMPORT: /opt/keycloak/data/import/realm-config.json
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-https://play.idklol.example}
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME: ${PUBLIC_WEB_URL:-https://play.idklol.example}
       KC_HOSTNAME_STRICT: "false"
     ports:
       - "8080:8080"
     tmpfs:
       - /tmp
     volumes:
-      - ./keycloak/realm-config.json:/opt/keycloak/data/import/realm-config.json:ro
+      - ./keycloak/realm-config.json:/opt/keycloak/data/import/realm-config.template.json:ro
       - keycloak_data:/opt/keycloak/data
-    command: ["start-dev", "--import-realm"]
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        sed "s|__PUBLIC_WEB_URL__|$${PUBLIC_WEB_URL}|g" /opt/keycloak/data/import/realm-config.template.json > /opt/keycloak/data/import/realm-config.json
+        exec /opt/keycloak/bin/kc.sh start-dev --import-realm --proxy-headers xforwarded --hostname "$${KC_HOSTNAME}"
     restart: unless-stopped
 
   devtoken:
@@ -147,7 +155,7 @@ services:
     image: ghcr.io/skyne/idklol-server-characters-admin:latest
     environment:
       DATABASE_URL: postgresql://idklol:idklol_dev_password@postgres:5432/idklol_characters
-      KEYCLOAK_URL: http://webadmin:3002/realms/idklol
+      KEYCLOAK_URL: http://keycloak:8080/realms/idklol
       KEYCLOAK_CLIENT_ID: idklol-webadmin
       KEYCLOAK_CLIENT_SECRET: webadmin-client-secret-12345
       NATS_URL: nats://nats:4222
@@ -229,13 +237,13 @@ services:
       HOSTNAME: 0.0.0.0
       AUTH_DEBUG: "true"
       AUTH_TRUST_HOST: "true"
-      AUTH_URL: https://localhost:3000
-      NEXTAUTH_URL: https://localhost:3000
+      AUTH_URL: ${PUBLIC_WEB_URL:-https://play.idklol.example}
+      NEXTAUTH_URL: ${PUBLIC_WEB_URL:-https://play.idklol.example}
       NEXTAUTH_SECRET: change-this-in-production-use-openssl-rand-base64-32
       KEYCLOAK_ID: idklol-webadmin
       KEYCLOAK_SECRET: webadmin-client-secret-12345
-      KEYCLOAK_ISSUER: https://localhost:3000/realms/idklol
-      KEYCLOAK_EXTERNAL_ISSUER: https://localhost:3000/realms/idklol
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/idklol
+      KEYCLOAK_EXTERNAL_ISSUER: ${PUBLIC_WEB_URL:-https://play.idklol.example}/realms/idklol
       NATS_URL: nats://nats:4222
       TRACING_OTLP_ENABLED: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317

@@ -11,6 +11,8 @@ pub struct NpcDefinitionRow {
     pub display_name: String,
     pub role: String,
     pub model_id: String,
+    pub skeletal_mesh_path: Option<String>,
+    pub actor_class_path: Option<String>,
     pub faction: String,
     pub template_key: String,
     pub tone: String,
@@ -58,6 +60,8 @@ impl NpcFull {
             display_name: self.definition.display_name.clone(),
             role: self.definition.role.clone(),
             model_id: self.definition.model_id.clone(),
+            skeletal_mesh_path: self.definition.skeletal_mesh_path.clone(),
+            actor_class_path: self.definition.actor_class_path.clone(),
             faction: self.definition.faction.clone(),
             template_key: self.definition.template_key.clone(),
             tone: self.definition.tone.clone(),
@@ -202,6 +206,10 @@ pub struct NpcMetaFull {
     pub display_name: String,
     pub role: String,
     pub model_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skeletal_mesh_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_class_path: Option<String>,
     pub faction: String,
     pub template_key: String,
     pub tone: String,
@@ -284,6 +292,69 @@ pub struct NpcResolveContextRequest {
     pub world_snapshot: Option<String>,
 }
 
+fn default_spawn_policy() -> String {
+    "always".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NpcUpsertSpawnPointRequest {
+    #[serde(default)]
+    pub id: Option<String>,
+    pub zone_id: String,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub yaw: f64,
+    #[serde(default = "default_spawn_policy")]
+    pub spawn_policy: String,
+    #[serde(default)]
+    pub schedule: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NpcUpsertBehaviorConfigRequest {
+    #[serde(default)]
+    pub interaction_radius: Option<f64>,
+    #[serde(default)]
+    pub cooldown_ms: Option<i32>,
+    #[serde(default)]
+    pub max_concurrent_interactions: Option<i32>,
+    #[serde(default)]
+    pub ai_state_defaults: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NpcUpsertRequest {
+    #[serde(default)]
+    pub npc_id: Option<String>,
+    #[serde(default)]
+    pub archetype_id: Option<String>,
+    pub display_name: String,
+    pub role: String,
+    pub model_id: String,
+    #[serde(default)]
+    pub skeletal_mesh_path: Option<String>,
+    #[serde(default)]
+    pub actor_class_path: Option<String>,
+    pub faction: String,
+    pub template_key: String,
+    #[serde(default)]
+    pub tone: String,
+    #[serde(default)]
+    pub rules: Vec<String>,
+    #[serde(default)]
+    pub is_persistent: bool,
+    #[serde(default)]
+    pub spawn_points: Vec<NpcUpsertSpawnPointRequest>,
+    #[serde(default)]
+    pub behavior_config: Option<NpcUpsertBehaviorConfigRequest>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NpcDeleteRequest {
+    pub npc_id: String,
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -349,6 +420,8 @@ mod tests {
                 display_name: "Innkeeper Mira".to_string(),
                 role: "innkeeper".to_string(),
                 model_id: "NPC_Innkeeper_F".to_string(),
+                skeletal_mesh_path: Some("/Game/Characters/NPC/SKM_Innkeeper_F.SKM_Innkeeper_F".to_string()),
+                actor_class_path: Some("/Game/Blueprints/NPC/BP_NPCCharacter.BP_NPCCharacter_C".to_string()),
                 faction: "neutral".to_string(),
                 template_key: "shopkeeper/innkeeper".to_string(),
                 tone: "friendly, welcoming, practical".to_string(),

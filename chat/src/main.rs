@@ -2,7 +2,8 @@ use tonic::transport::Server;
 use chat::chat_service_server::ChatServiceServer;
 use idklol_common::config::env_config::EnvConfig;
 use idklol_common::logging::logger_service::LoggerService;
-use tracing::{debug, info, warn};
+use idklol_common::runtime;
+use tracing::info;
 
 pub mod chat {
     tonic::include_proto!("chat");
@@ -10,10 +11,6 @@ pub mod chat {
 
 mod services;
 use services::chat_service::MyChatService;
-use idklol_common::auth::{
-    jwt::jwt_validator_service::JwtValidatorService,
-    token_validator_service::TokenValidatorService,
-};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,13 +18,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _logger_guard = LoggerService::init_from_env("idklol-chat")?;
 
     let addr = "0.0.0.0:50052".parse()?;
-    let chat_service = MyChatService::default();
+    let chat_service = MyChatService::from_env().await;
 
     info!(%addr, "chat server starting");
 
     Server::builder()
         .add_service(ChatServiceServer::new(chat_service))
-        .serve(addr)
+        .serve_with_shutdown(addr, runtime::wait_for_shutdown_signal())
         .await?;
 
     Ok(())

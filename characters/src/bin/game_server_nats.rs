@@ -12,6 +12,7 @@
 use idklol_common::config::env_config::EnvConfig;
 use idklol_common::db;
 use idklol_common::logging::logger_service::LoggerService;
+use idklol_common::runtime;
 use tracing::{error, info, info_span, warn, Instrument};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
@@ -135,13 +136,20 @@ async fn handle_characters_get(
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     EnvConfig::init_from_path(concat!(env!("CARGO_MANIFEST_DIR"), "/.env"));
     let _logger_guard = LoggerService::init_from_env("idklol-characters-server")?;
+    let retry_config = runtime::RetryConfig::from_env();
 
     let database_url = EnvConfig::get_required("DATABASE_URL")?;
     info!("connecting to database");
-    let pool = db::connect_pool(&database_url, 5).await?;
+    let pool = runtime::retry_with_backoff("database connection", retry_config, || {
+        db::connect_pool(&database_url, 5)
+    })
+    .await?;
 
     info!("running database migrations");
-    let schema_version = db::migrate_and_get_version(&pool, &MIGRATOR).await?;
+    let schema_version = runtime::retry_with_backoff("database migrations", retry_config, || {
+        db::migrate_and_get_version(&pool, &MIGRATOR)
+    })
+    .await?;
     info!(?schema_version, "database migrations complete");
 
     let character_service = Arc::new(CharacterAdminService::with_pool(pool));
@@ -152,7 +160,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| "nats://nats:4222".to_string());
 
     info!(%nats_url, "connecting to NATS");
-    let client = async_nats::connect(&nats_url).await?;
+    let client = runtime::retry_with_backoff("nats connection", retry_config, || {
+        async_nats::connect(&nats_url)
+    })
+    .await?;
     info!("connected to NATS successfully");
 
     // Subscribe: characters.get
@@ -171,7 +182,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     info!("Characters game-server NATS service is running");
-    tokio::signal::ctrl_c().await?;
+    runtime::wait_for_shutdown_signal().await;
     info!("shutting down");
     Ok(())
 }

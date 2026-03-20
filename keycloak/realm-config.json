@@ -105,12 +105,10 @@
       "standardFlowEnabled": true,
       "secret": "webadmin-client-secret-12345",
       "redirectUris": [
-        "http://localhost:3000/*",
-        "https://localhost:3000/*"
+        "__PUBLIC_WEB_URL__/*"
       ],
       "webOrigins": [
-        "http://localhost:3000",
-        "https://localhost:3000"
+        "__PUBLIC_WEB_URL__"
       ],
       "protocolMappers": [
         {

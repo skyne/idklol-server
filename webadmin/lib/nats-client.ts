@@ -33,6 +33,30 @@ export interface NatsRequest {
   jwt: string;
 }
 
+async function requestNats(
+  { subject, payload, jwt }: NatsRequest
+): Promise<any> {
+  const client = await getNatsClient();
+
+  const h = headers();
+  h.set('Authorization', `Bearer ${jwt}`);
+
+  console.log(`[NATS] Publishing to subject: ${subject}`);
+  console.log(`[NATS] Token preview: ${jwt.substring(0, 20)}...${jwt.substring(jwt.length - 20)}`);
+  console.log(`[NATS] Headers:`, Array.from(h.keys()).map(k => `${k}: ${h.get(k)?.substring(0, 30)}...`));
+
+  const data = payload ? JSON.stringify(payload) : '{}';
+
+  const response = await client.request(
+    subject,
+    new TextEncoder().encode(data),
+    { timeout: 10000, headers: h }
+  );
+
+  const responseText = new TextDecoder().decode(response.data);
+  return JSON.parse(responseText);
+}
+
 export class NatsTimeoutError extends Error {
   constructor(message: string) {
     super(message);
@@ -51,31 +75,8 @@ export async function publishRequest<T>(
   { subject, payload, jwt }: NatsRequest
 ): Promise<T> {
   try {
-    const client = await getNatsClient();
+    const result = await requestNats({ subject, payload, jwt });
     
-    // Create headers with JWT
-    const h = headers();
-    h.set('Authorization', `Bearer ${jwt}`);
-    
-    console.log(`[NATS] Publishing to subject: ${subject}`);
-    console.log(`[NATS] Token preview: ${jwt.substring(0, 20)}...${jwt.substring(jwt.length - 20)}`);
-    console.log(`[NATS] Headers:`, Array.from(h.keys()).map(k => `${k}: ${h.get(k)?.substring(0, 30)}...`));
-    
-    // Encode payload as JSON
-    const data = payload ? JSON.stringify(payload) : '{}';
-    
-    // Send request and wait for response (10 second timeout)
-    const response = await client.request(
-      subject,
-      new TextEncoder().encode(data),
-      { timeout: 10000, headers: h }
-    );
-    
-    // Decode and parse response
-    const responseText = new TextDecoder().decode(response.data);
-    const result = JSON.parse(responseText);
-    
-    // Check for errors in response
     if (!result.success) {
       throw new Error(result.error || 'Request failed');
     }
@@ -95,6 +96,32 @@ export async function publishRequest<T>(
     }
     
     // Re-throw other errors
+    throw error;
+  }
+}
+
+export async function publishRawRequest<T>(
+  { subject, payload, jwt }: NatsRequest
+): Promise<T> {
+  try {
+    const result = await requestNats({ subject, payload, jwt });
+
+    if (result && typeof result === 'object' && 'error' in result && typeof result.error === 'string') {
+      throw new Error(result.error);
+    }
+
+    return result as T;
+  } catch (error: any) {
+    console.error(`[NATS] Error publishing to ${subject}:`, error);
+
+    if (error.code === 'TIMEOUT' || error.message?.includes('timeout')) {
+      throw new NatsTimeoutError(`NATS request timeout for subject: ${subject}`);
+    }
+
+    if (error.code === 'CONNECTION_CLOSED' || error.message?.includes('connection')) {
+      throw new NatsConnectionError(`NATS connection error: ${error.message}`);
+    }
+
     throw error;
   }
 }

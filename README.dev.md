@@ -1,5 +1,10 @@
 # Development Mode with Hot Reload
 
+## Developer Docs
+
+- NPC system overview + module map: `docs/developer/NPC_SYSTEM_DEVELOPER_GUIDE.md`
+- NPC asset/new NPC authoring guide (UE side): `../idklol-client/docs/npc/NPC_ASSET_AND_CREATION_GUIDE.md`
+
 ## Quick Start
 
 Start services with auto-reload on code changes:
