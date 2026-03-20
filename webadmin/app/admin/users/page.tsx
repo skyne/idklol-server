@@ -59,7 +59,9 @@ function userToForm(user: ManagedUser): UserFormState {
 async function parseResponse<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || "Request failed");
+    const detail = data.details?.error_description || data.details?.error;
+    const msg = data.error || "Request failed";
+    throw new Error(detail ? `${msg}: ${detail}` : msg);
   }
   return data as T;
 }
@@ -73,6 +75,7 @@ export default function UsersPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [tokenClientId, setTokenClientId] = useState("idklol-characters");
+  const [tokenPassword, setTokenPassword] = useState("");
   const [tokenResult, setTokenResult] = useState<TokenResult | null>(null);
 
   const { data: users, isLoading, refetch } = useQuery<ManagedUser[]>({
@@ -160,13 +163,13 @@ export default function UsersPage() {
 
   const tokenMutation = useMutation({
     mutationFn: async () => {
-      const password = form.password.trim();
+      const password = tokenPassword.trim();
       if (!form.username.trim()) {
         throw new Error("Username is required to create a token");
       }
 
       if (!password) {
-        throw new Error("Enter the user's current password to mint a token bundle");
+        throw new Error("Enter the user's current Keycloak password to mint a token bundle");
       }
 
       const response = await fetch("/api/users/token", {
@@ -211,6 +214,7 @@ export default function UsersPage() {
     setFormError(null);
     setNotice(null);
     setTokenResult(null);
+    setTokenPassword("");
   }
 
   function startNewUser() {
@@ -218,6 +222,7 @@ export default function UsersPage() {
     setForm(createEmptyForm());
     setFormError(null);
     setNotice(null);
+    setTokenPassword("");
     setTokenResult(null);
   }
 
@@ -430,14 +435,26 @@ export default function UsersPage() {
               This uses the password grant for the selected user and returns full Keycloak JSON with both access and refresh tokens.
             </p>
 
-            <label className="space-y-2 block">
-              <span className="text-sm text-muted-foreground">Client id</span>
-              <input
-                value={tokenClientId}
-                onChange={(event) => setTokenClientId(event.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 outline-none focus:border-primary"
-              />
-            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="space-y-2 block">
+                <span className="text-sm text-muted-foreground">User password</span>
+                <input
+                  type="password"
+                  value={tokenPassword}
+                  onChange={(event) => setTokenPassword(event.target.value)}
+                  placeholder="Current Keycloak password"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                />
+              </label>
+              <label className="space-y-2 block">
+                <span className="text-sm text-muted-foreground">Client id</span>
+                <input
+                  value={tokenClientId}
+                  onChange={(event) => setTokenClientId(event.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 outline-none focus:border-primary"
+                />
+              </label>
+            </div>
 
             {tokenResult && (
               <div className="space-y-4">
