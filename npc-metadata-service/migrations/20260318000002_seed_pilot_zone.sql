@@ -1,14 +1,12 @@
 -- Seed: pilot zone (zone_tavern_district) with three NPCs
 
 -- ─── Innkeeper Mira ───────────────────────────────────────────────────────────
-INSERT INTO npc_definitions (npc_id, display_name, role, model_id, skeletal_mesh_path, actor_class_path, faction, template_key, tone, rules_json, is_persistent)
+INSERT INTO npc_definitions (npc_id, display_name, role, model_id, faction, template_key, tone, rules_json, is_persistent)
 VALUES (
     '11111111-1111-1111-1111-111111111111',
     'Innkeeper Mira',
     'innkeeper',
     'NPC_Innkeeper_F',
-    '/Game/Characters/NPC/SKM_Innkeeper_F.SKM_Innkeeper_F',
-    '/Game/Blueprints/NPC/BP_NPCCharacter.BP_NPCCharacter_C',
     'neutral',
     'shopkeeper/innkeeper',
     'friendly, welcoming, practical',
@@ -25,14 +23,12 @@ VALUES ('11111111-1111-1111-1111-111111111111', 250.0, 3000, 1)
 ON CONFLICT (npc_id) DO NOTHING;
 
 -- ─── Guard Captain Aldric ─────────────────────────────────────────────────────
-INSERT INTO npc_definitions (npc_id, display_name, role, model_id, skeletal_mesh_path, actor_class_path, faction, template_key, tone, rules_json, is_persistent)
+INSERT INTO npc_definitions (npc_id, display_name, role, model_id, faction, template_key, tone, rules_json, is_persistent)
 VALUES (
     '22222222-2222-2222-2222-222222222222',
     'Guard Captain Aldric',
     'guard',
     'NPC_Guard_M',
-    '/Game/Characters/NPC/SKM_Guard_M.SKM_Guard_M',
-    '/Game/Blueprints/NPC/BP_NPCCharacter.BP_NPCCharacter_C',
     'city_watch',
     'authority/guard',
     'stern, authoritative, duty-bound',
@@ -49,14 +45,12 @@ VALUES ('22222222-2222-2222-2222-222222222222', 350.0, 5000, 2)
 ON CONFLICT (npc_id) DO NOTHING;
 
 -- ─── Merchant Fallin ──────────────────────────────────────────────────────────
-INSERT INTO npc_definitions (npc_id, display_name, role, model_id, skeletal_mesh_path, actor_class_path, faction, template_key, tone, rules_json, is_persistent)
+INSERT INTO npc_definitions (npc_id, display_name, role, model_id, faction, template_key, tone, rules_json, is_persistent)
 VALUES (
     '33333333-3333-3333-3333-333333333333',
     'Merchant Fallin',
     'merchant',
     'NPC_Merchant_M',
-    '/Game/Characters/NPC/SKM_Merchant_M.SKM_Merchant_M',
-    '/Game/Blueprints/NPC/BP_NPCCharacter.BP_NPCCharacter_C',
     'traders_guild',
     'shopkeeper/merchant',
     'shrewd, enthusiastic, deal-minded',
