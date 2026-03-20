@@ -69,7 +69,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       // Return previous token if the access token has not expired yet
-      if (Date.now() < (token.accessTokenExpires as number)) {
+      // Refresh 30 seconds early to reduce the race-condition window where NATS
+      // receives an already-expired token.
+      if (Date.now() + 30 * 1000 < (token.accessTokenExpires as number)) {
         return token;
       }
 

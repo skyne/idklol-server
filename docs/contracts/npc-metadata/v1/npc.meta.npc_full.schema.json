@@ -72,6 +72,12 @@
         "$ref": "#/$defs/spawn_point"
       }
     },
+    "skeletal_mesh_path": {
+      "type": ["string", "null"]
+    },
+    "actor_class_path": {
+      "type": ["string", "null"]
+    },
     "behavior_config": {
       "oneOf": [
         {

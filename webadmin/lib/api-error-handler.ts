@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
-import { NatsTimeoutError, NatsConnectionError } from './nats-client';
+import { NatsTimeoutError, NatsConnectionError, NatsTokenExpiredError } from './nats-client';
 
 export function handleApiError(error: any, context?: string): NextResponse {
   if (context) {
     console.error(`[API] Error in ${context}:`, error);
   } else {
     console.error('[API] Error:', error);
+  }
+
+  // Return 401 when the NATS service rejected the token as expired/invalid
+  if (error instanceof NatsTokenExpiredError) {
+    return NextResponse.json({ error: 'TokenExpired' }, { status: 401 });
   }
   
   // Return 503 for NATS timeout or connection errors

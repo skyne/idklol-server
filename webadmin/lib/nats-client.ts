@@ -71,6 +71,23 @@ export class NatsConnectionError extends Error {
   }
 }
 
+export class NatsTokenExpiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NatsTokenExpiredError';
+  }
+}
+
+function isTokenExpiredMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('invalid or expired token') ||
+    lower.includes('token expired') ||
+    lower.includes('token is expired') ||
+    lower.includes('jwt expired')
+  );
+}
+
 export async function publishRequest<T>(
   { subject, payload, jwt }: NatsRequest
 ): Promise<T> {
@@ -78,13 +95,19 @@ export async function publishRequest<T>(
     const result = await requestNats({ subject, payload, jwt });
     
     if (!result.success) {
-      throw new Error(result.error || 'Request failed');
+      const errorMessage = result.error || 'Request failed';
+      if (isTokenExpiredMessage(errorMessage)) {
+        throw new NatsTokenExpiredError(errorMessage);
+      }
+      throw new Error(errorMessage);
     }
     
     return result.data as T;
   } catch (error: any) {
     console.error(`[NATS] Error publishing to ${subject}:`, error);
     
+    if (error instanceof NatsTokenExpiredError) throw error;
+
     // Check if it's a timeout error
     if (error.code === 'TIMEOUT' || error.message?.includes('timeout')) {
       throw new NatsTimeoutError(`NATS request timeout for subject: ${subject}`);
@@ -107,12 +130,18 @@ export async function publishRawRequest<T>(
     const result = await requestNats({ subject, payload, jwt });
 
     if (result && typeof result === 'object' && 'error' in result && typeof result.error === 'string') {
-      throw new Error(result.error);
+      const errorMessage = result.error;
+      if (isTokenExpiredMessage(errorMessage)) {
+        throw new NatsTokenExpiredError(errorMessage);
+      }
+      throw new Error(errorMessage);
     }
 
     return result as T;
   } catch (error: any) {
     console.error(`[NATS] Error publishing to ${subject}:`, error);
+
+    if (error instanceof NatsTokenExpiredError) throw error;
 
     if (error.code === 'TIMEOUT' || error.message?.includes('timeout')) {
       throw new NatsTimeoutError(`NATS request timeout for subject: ${subject}`);

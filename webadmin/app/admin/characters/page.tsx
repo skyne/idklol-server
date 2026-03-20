@@ -23,7 +23,10 @@ export default function CharactersPage() {
     queryKey: ['characters'],
     queryFn: async () => {
       const res = await fetch('/api/characters');
-      if (!res.ok) throw new Error('Failed to fetch characters');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to fetch characters');
+      }
       return res.json();
     },
   });
