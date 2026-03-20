@@ -131,12 +131,42 @@ async function parseResponseBody(response: Response) {
 }
 
 async function getAdminAccessToken(): Promise<string> {
-  const { baseUrl } = getIssuerMetadata();
-  const adminRealm = process.env.KEYCLOAK_ADMIN_REALM?.trim() || "master";
+  const { baseUrl, realm } = getIssuerMetadata();
+
+  const adminClientId = process.env.KEYCLOAK_ADMIN_CLIENT_ID?.trim() || process.env.KEYCLOAK_ID?.trim();
+  const adminClientSecret = process.env.KEYCLOAK_ADMIN_CLIENT_SECRET?.trim() || process.env.KEYCLOAK_SECRET?.trim();
+  const adminRealm = process.env.KEYCLOAK_ADMIN_REALM?.trim() || realm;
+
+  if (adminClientId && adminClientSecret) {
+    const clientCredsResponse = await fetch(`${baseUrl}/realms/${adminRealm}/protocol/openid-connect/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: adminClientId,
+        client_secret: adminClientSecret,
+        grant_type: "client_credentials",
+      }),
+      cache: "no-store",
+    });
+
+    const clientCredsPayload = await parseResponseBody(clientCredsResponse);
+    if (
+      clientCredsResponse.ok
+      && typeof clientCredsPayload === "object"
+      && clientCredsPayload !== null
+      && "access_token" in clientCredsPayload
+    ) {
+      return String((clientCredsPayload as { access_token: string }).access_token);
+    }
+  }
+
+  const legacyAdminRealm = process.env.KEYCLOAK_ADMIN_REALM?.trim() || "master";
   const adminUsername = getRequiredEnv("KEYCLOAK_ADMIN_USERNAME");
   const adminPassword = getRequiredEnv("KEYCLOAK_ADMIN_PASSWORD");
 
-  const response = await fetch(`${baseUrl}/realms/${adminRealm}/protocol/openid-connect/token`, {
+  const response = await fetch(`${baseUrl}/realms/${legacyAdminRealm}/protocol/openid-connect/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
