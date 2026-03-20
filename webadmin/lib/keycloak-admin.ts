@@ -341,6 +341,8 @@ export async function createManagedUser(input: UserUpsertInput): Promise<Managed
       firstName: input.firstName || undefined,
       lastName: input.lastName || undefined,
       enabled: input.enabled,
+      emailVerified: true,
+      requiredActions: [],
     }),
   }, [201]);
 
@@ -371,6 +373,8 @@ export async function updateManagedUser(userId: string, input: UserUpdateInput):
       firstName: input.firstName || undefined,
       lastName: input.lastName || undefined,
       enabled: input.enabled,
+      emailVerified: true,
+      requiredActions: [],
     }),
   });
 
