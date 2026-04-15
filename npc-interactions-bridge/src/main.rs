@@ -145,7 +145,11 @@ struct BridgeState {
 struct NpcInteractionRequest {
     request_id: Option<String>,
     npc_id: String,
+    npc_name: Option<String>,
+    npc_role: Option<String>,
     player_id: Option<String>,
+    player_name: Option<String>,
+    nearby_player_names: Option<Vec<String>>,
     message: String,
     context: Option<String>,
     temperature: Option<f32>,
@@ -218,46 +222,82 @@ impl From<reqwest::Error> for BridgeGenerateError {
 }
 
 fn build_prompt(request: &NpcInteractionRequest) -> String {
-    let mut sections = vec![
-        format!("NPC ID: {}", request.npc_id),
+    let mut sections = vec![format!("NPC ID: {}", request.npc_id)];
+
+    if let Some(npc_name) = request.npc_name.as_ref() {
+        sections.push(format!("NPC Name: {npc_name}"));
+    }
+    if let Some(npc_role) = request.npc_role.as_ref() {
+        sections.push(format!("NPC Role: {npc_role}"));
+    }
+
+    sections.push(
         request
             .player_id
             .as_ref()
             .map(|player_id| format!("Player ID: {player_id}"))
             .unwrap_or_else(|| "Player ID: unknown".to_string()),
-    ];
+    );
+
+    if let Some(player_name) = request.player_name.as_ref() {
+        sections.push(format!("Player Name: {player_name}"));
+    }
+
+    if let Some(nearby) = request.nearby_player_names.as_ref() {
+        if !nearby.is_empty() {
+            sections.push(format!("Nearby Players: {}", nearby.join(", ")));
+        }
+    }
 
     if let Some(context) = request.context.as_ref() {
         sections.push(format!("World Context: {context}"));
     }
 
     sections.push(format!("Player Message: {}", request.message));
-    sections.push("Respond as the NPC. Keep responses concise and in character.".to_string());
+    sections.push("If nearby players are listed, greet them by name in the response.".to_string());
+    sections.push("Respond as the NPC with concise, role-appropriate dialogue.".to_string());
 
     sections.join("\n")
 }
 
 fn render_system_prompt_template(template: &str, request: &NpcInteractionRequest) -> String {
-    let player_name = request.player_id.as_deref().unwrap_or("unknown-player");
+    let player_id = request.player_id.as_deref().unwrap_or("unknown-player");
+    let player_name = request.player_name.as_deref().unwrap_or(player_id);
+    let npc_name = request.npc_name.as_deref().unwrap_or(request.npc_id.as_str());
+    let npc_role = request.npc_role.as_deref().unwrap_or("");
     let world_context = request.context.as_deref().unwrap_or("");
 
+    let nearby_players = request
+        .nearby_player_names
+        .as_ref()
+        .map(|nearby| nearby.join(", "))
+        .unwrap_or_default();
+
     let replacements = [
-        ("{{npc-name}}", request.npc_id.as_str()),
-        ("{{npc_name}}", request.npc_id.as_str()),
-        ("{npc-name}", request.npc_id.as_str()),
-        ("{npc_name}", request.npc_id.as_str()),
+        ("{{npc-name}}", npc_name),
+        ("{{npc_name}}", npc_name),
+        ("{npc-name}", npc_name),
+        ("{npc_name}", npc_name),
         ("{{npc-id}}", request.npc_id.as_str()),
         ("{{npc_id}}", request.npc_id.as_str()),
         ("{npc-id}", request.npc_id.as_str()),
         ("{npc_id}", request.npc_id.as_str()),
+        ("{{npc-role}}", npc_role),
+        ("{{npc_role}}", npc_role),
+        ("{npc-role}", npc_role),
+        ("{npc_role}", npc_role),
         ("{{player-name}}", player_name),
         ("{{player_name}}", player_name),
         ("{player-name}", player_name),
         ("{player_name}", player_name),
-        ("{{player-id}}", player_name),
-        ("{{player_id}}", player_name),
-        ("{player-id}", player_name),
-        ("{player_id}", player_name),
+        ("{{player-id}}", player_id),
+        ("{{player_id}}", player_id),
+        ("{player-id}", player_id),
+        ("{player_id}", player_id),
+        ("{{nearby-players}}", nearby_players.as_str()),
+        ("{{nearby_players}}", nearby_players.as_str()),
+        ("{nearby-players}", nearby_players.as_str()),
+        ("{nearby_players}", nearby_players.as_str()),
         ("{{world-context}}", world_context),
         ("{{world_context}}", world_context),
         ("{world-context}", world_context),
@@ -523,7 +563,11 @@ async fn handle_cli_chat_command(state: &BridgeState, args: &str) {
     let request = NpcInteractionRequest {
         request_id: Some(build_cli_request_id()),
         npc_id: state.config.debug_npc_id.clone(),
+        npc_name: None,
+        npc_role: None,
         player_id: Some(state.config.debug_player_id.clone()),
+        player_name: None,
+        nearby_player_names: None,
         message: text.to_string(),
         context: None,
         temperature: None,
